@@ -1,0 +1,267 @@
+<!DOCTYPE html> <html lang="zh-CN"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>文件下载服务</title> <style> * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Helvetica Neue', Arial, sans-serif; } body { background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #333; min-height: 100vh; padding: 20px; } .container { max-width: 800px; margin: 0 auto; background-color: rgba(255, 255, 255, 0.95); border-radius: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); overflow: hidden; } header { background: linear-gradient(to right, #4a00e0, #8e2de2); color: white; padding: 25px 20px; text-align: center; } h1 { font-size: 1.8rem; margin-bottom: 10px; } .subtitle { font-size: 1rem; opacity: 0.9; } .content { padding: 25px; } .file-list { margin-bottom: 25px; max-height: 300px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 10px; padding: 15px; } .file-item { display: flex; align-items: center; padding: 12px 10px; border-bottom: 1px solid #f0f0f0; } .file-item:last-child { border-bottom: none; } .file-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; margin-right: 15px; border-radius: 8px; background-color: #f0f0f0; } .file-info { flex: 1; } .file-name { font-weight: 500; margin-bottom: 5px; } .file-size { font-size: 0.85rem; color: #777; } .download-btn { display: block; width: 100%; padding: 16px; background: linear-gradient(to right, #00b09b, #96c93d); color: white; border: none; border-radius: 10px; font-size: 1.1rem; font-weight: 600; cursor: pointer; margin-top: 20px; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); } .download-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15); } .download-btn:active { transform: translateY(0); } .download-btn:disabled { background: #cccccc; cursor: not-allowed; transform: none; box-shadow: none; } .progress-container { margin-top: 20px; display: none; } .progress-bar { height: 10px; background-color: #e0e0e0; border-radius: 5px; overflow: hidden; margin-bottom: 10px; } .progress { height: 100%; background: linear-gradient(to right, #00b09b, #96c93d); width: 0%; transition: width 0.2s ease; } .progress-text { text-align: center; font-size: 0.9rem; color: #555; } .status { margin-top: 20px; padding: 15px; border-radius: 10px; text-align: center; display: none; } .status.success { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; } .status.error { background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; } .empty-state { text-align: center; padding: 30px; color: #777; } .empty-state i { font-size: 3rem; margin-bottom: 15px; color: #ccc; } .loading { text-align: center; padding: 20px; color: #555; } .spinner { border: 4px solid rgba(0, 0, 0, 0.1); border-left-color: #4a00e0; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto 15px; } @keyframes spin { to { transform: rotate(360deg); } } footer { text-align: center; padding: 20px; color: #777; font-size: 0.9rem; border-top: 1px solid #f0f0f0; } @media (max-width: 600px) { body { padding: 10px; } .container { border-radius: 15px; } header { padding: 20px 15px; } h1 { font-size: 1.5rem; } .content { padding: 20px 15px; } } </style> </head> <body> <div class="container"> <header> <h1>文件下载服务</h1> <p class="subtitle">一键打包下载所有图片和视频（iPhone/iPad 友好）</p> </header>
+
+    <div class="content">
+        <div class="file-list" id="fileList">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>正在加载文件列表...</p>
+            </div>
+        </div>
+
+        <button class="download-btn" id="downloadAllBtn" disabled>一键打包下载</button>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress" id="progressBar"></div>
+            </div>
+            <div class="progress-text" id="progressText">准备下载...</div>
+        </div>
+
+        <div class="status" id="statusMessage"></div>
+    </div>
+
+    <footer>
+        <p>文件服务 &copy; 2023</p>
+    </footer>
+</div>
+
+<!-- JSZip 和 FileSaver（用于 ZIP 打包和兼容 iOS 的保存） -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const fileList = document.getElementById('fileList');
+        const downloadAllBtn = document.getElementById('downloadAllBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const statusMessage = document.getElementById('statusMessage');
+
+        let files = [];
+
+        const isIOS = () => {
+            const ua = window.navigator.userAgent;
+            const iOS = /iP(hone|od|ad)/.test(ua);
+            const iPadOS13Plus = ua.includes('Mac') && 'ontouchend' in document;
+            return iOS || iPadOS13Plus;
+        };
+
+        // 获取文件列表
+        fetch('./data/')
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const links = doc.querySelectorAll('a');
+
+                files = Array.from(links)
+                    .map(link => {
+                        const href = link.getAttribute('href');
+                        const text = (link.textContent || '').trim();
+                        if (href && !href.endsWith('/') && !href.startsWith('?')) {
+                            return {
+                                name: text || href.split('/').pop(),
+                                url: './data/' + href,
+                                type: getFileType(text || href)
+                            };
+                        }
+                        return null;
+                    })
+                    .filter(file => file && (file.type === 'image' || file.type === 'video'));
+
+                displayFiles(files);
+
+                if (files.length > 0) {
+                    downloadAllBtn.disabled = false;
+                } else {
+                    fileList.innerHTML = `
+                        <div class="empty-state">
+                            <i>📁</i>
+                            <p>没有找到图片或视频文件</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('获取文件列表失败:', error);
+                fileList.innerHTML = `
+                    <div class="empty-state">
+                        <i>❌</i>
+                        <p>无法加载文件列表，请检查服务器连接</p>
+                    </div>
+                `;
+            });
+
+        function displayFiles(files) {
+            if (files.length === 0) {
+                fileList.innerHTML = `
+                    <div class="empty-state">
+                        <i>📁</i>
+                        <p>没有找到图片或视频文件</p>
+                    </div>
+                `;
+                return;
+            }
+            fileList.innerHTML = '';
+
+            files.forEach(file => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    <div class="file-icon">${getFileIcon(file.type)}</div>
+                    <div class="file-info">
+                        <div class="file-name">${escapeHtml(file.name)}</div>
+                        <div class="file-size">${file.type === 'image' ? '图片' : '视频'}文件</div>
+                    </div>
+                `;
+
+                // 单个文件点击：在 iOS 上直接打开原文件（便于“保存到文件”）
+                fileItem.addEventListener('click', () => {
+                    if (isIOS()) {
+                        // iOS 上直接打开源链接，由系统控制保存
+                        window.location.href = file.url;
+                    } else {
+                        // 非 iOS：直接打开新标签预览
+                        window.open(file.url, '_blank');
+                    }
+                });
+
+                fileList.appendChild(fileItem);
+            });
+        }
+
+        function getFileType(filename) {
+            const ext = (filename.split('.').pop() || '').toLowerCase();
+            const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+            const videoExts = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'];
+            if (imageExts.includes(ext)) return 'image';
+            if (videoExts.includes(ext)) return 'video';
+            return 'other';
+        }
+
+        function getFileIcon(type) {
+            if (type === 'image') return '🖼️';
+            if (type === 'video') return '🎥';
+            return '📄';
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/[&<>"']/g, m => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[m]));
+        }
+
+        // 一键打包下载（iOS 友好）
+        downloadAllBtn.addEventListener('click', async function() {
+            if (!files.length) return;
+
+            downloadAllBtn.disabled = true;
+            showStatus('', null);
+            progressContainer.style.display = 'block';
+            setProgress(0, '准备下载...');
+
+            try {
+                // 1. 逐个拉取文件并加入 ZIP，进度 0% -> 50%
+                const zip = new JSZip();
+                const safeName = makeUniqueNames(files.map(f => f.name));
+
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    const name = safeName[i];
+                    setProgress(Math.min(50, (i / Math.max(1, files.length)) * 50), `正在获取文件 ${i + 1}/${files.length}：${name}`);
+                    const resp = await fetch(file.url, { credentials: 'same-origin' });
+                    if (!resp.ok) throw new Error(`获取 ${name} 失败 (${resp.status})`);
+                    const blob = await resp.blob();
+                    zip.file(name, blob);
+                }
+
+                // 2. 生成 ZIP，进度 50% -> 100%
+                setProgress(50, '正在生成压缩包...');
+                const zipBlob = await zip.generateAsync(
+                    { type: 'blob', compression: 'STORE' }, // 对视频/图片无损压缩更快
+                    (metadata) => {
+                        const p = 50 + (metadata.percent || 0) / 2;
+                        setProgress(p, `正在生成压缩包 ${Math.round(metadata.percent || 0)}%`);
+                    }
+                );
+
+                const zipName = `files_${new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19)}.zip`;
+                await saveBlob(zipBlob, zipName);
+                setProgress(100, '打包完成');
+                showStatus('所有文件已打包并保存。iPhone/iPad 请在弹出的对话框中选择“保存到文件”。', 'success');
+
+                // 3 秒后隐藏进度条
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                }, 3000);
+            } catch (err) {
+                console.error(err);
+                showStatus(err.message || '下载失败，请重试', 'error');
+            } finally {
+                downloadAllBtn.disabled = false;
+            }
+        });
+
+        function setProgress(percent, text) {
+            const p = Math.max(0, Math.min(100, percent));
+            progressBar.style.width = `${p}%`;
+            progressText.textContent = text || `${Math.round(p)}%`;
+        }
+
+        function showStatus(message, type) {
+            statusMessage.textContent = message || '';
+            statusMessage.className = 'status' + (type ? ` ${type}` : '');
+            statusMessage.style.display = message ? 'block' : 'none';
+        }
+
+        function makeUniqueNames(names) {
+            // 去重同名：a.jpg, a.jpg -> a.jpg, a(1).jpg
+            const map = new Map();
+            return names.map(n => {
+                const base = n;
+                if (!map.has(base)) {
+                    map.set(base, 0);
+                    return base;
+                } else {
+                    const idx = map.get(base) + 1;
+                    map.set(base, idx);
+                    const dot = base.lastIndexOf('.');
+                    if (dot > 0) {
+                        return base.slice(0, dot) + `(${idx})` + base.slice(dot);
+                    } else {
+                        return base + `(${idx})`;
+                    }
+                }
+            });
+        }
+
+        async function saveBlob(blob, filename) {
+            // 优先使用 FileSaver（兼容 iOS）
+            if (typeof saveAs === 'function') {
+                try {
+                    saveAs(blob, filename);
+                    return;
+                } catch (e) {
+                    console.warn('FileSaver saveAs 失败，使用备用方案', e);
+                }
+            }
+            const blobUrl = URL.createObjectURL(blob);
+            if (isIOS()) {
+                // iOS：直接跳转到 blob URL，由系统处理保存（在“共享/保存到文件”里）
+                window.location.href = blobUrl;
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 60 * 1000);
+            } else {
+                // 其他浏览器：a[download]
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+            }
+        }
+    });
+</script>
+</body> </html>
