@@ -1,0 +1,13 @@
+[38;5;112m[Appium][0m Welcome to Appium v3.1.0 (REV 138341781728c93d3886a9d680445d7996682e2a)
+[38;5;112m[Appium][0m Non-default server args:
+[38;5;112m[Appium][0m { address: [32m'127.0.0.1'[39m, loglevel: [32m'info'[39m, useDrivers: [ [32m'uiautomator2'[39m ] }
+[38;5;112m[Appium][0m Attempting to load driver uiautomator2...
+[38;5;112m[Appium][0m Appium REST http interface listener started on http://127.0.0.1:4723
+[38;5;112m[Appium][0m Available drivers:
+[38;5;112m[Appium][0m   - uiautomator2@6.0.2 (automationName 'UiAutomator2')
+[38;5;112m[Appium][0m   - xcuitest@10.4.1 (automationName 'XCUITest')
+[38;5;112m[Appium][0m   - espresso@6.0.5 (automationName 'Espresso')
+[38;5;112m[Appium][0m Available plugins:
+[38;5;112m[Appium][0m   - images@4.0.2
+[38;5;112m[Appium][0m   - inspector@2025.8.2
+[38;5;112m[Appium][0m No plugins activated. Use the --use-plugins flag with names of plugins to activate
