@@ -1,3 +1,4 @@
 /data/music/*
 /uploads/*
 /处理视频流/output/*
+/处理视频流/__pycache__/*
