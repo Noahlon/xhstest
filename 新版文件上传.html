@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件传输服务</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .upload-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .file-input {
+            width: 100%;
+            padding: 15px;
+            margin: 20px 0;
+            border: 2px dashed #ddd;
+            border-radius: 5px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        .upload-btn {
+            background-color: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.2s;
+        }
+        .upload-btn:hover {
+            background-color: #0062cc;
+        }
+        .upload-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .progress {
+            width: 100%;
+            height: 4px;
+            background-color: #f0f0f0;
+            margin: 20px 0;
+            border-radius: 2px;
+            display: none;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #007AFF;
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .status {
+            text-align: center;
+            margin: 10px 0;
+            min-height: 20px;
+            font-size: 14px;
+        }
+        
+        /* 新增：屏幕常亮开关样式 */
+        .options-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+        .toggle-label input {
+            margin-right: 8px;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+        .wake-status {
+            font-size: 12px;
+            margin-left: 5px;
+            color: #28a745;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="upload-container">
+        <h2>文件传输服务</h2>
+        <p>选择要传输到Mac的文件</p>
+        
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" id="fileInput" name="file" class="file-input" multiple>
+            
+            <!-- 新增：保持屏幕常亮开关 -->
+            <div class="options-bar">
+                <label class="toggle-label">
+                    <input type="checkbox" id="wakeLockToggle">
+                    保持屏幕常亮 (防止传输中断)
+                </label>
+                <span id="wakeStatus" class="wake-status">● 已激活</span>
+            </div>
+
+            <div class="progress">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="status" id="status"></div>
+            <button type="submit" id="uploadBtn" class="upload-btn">上传到Mac</button>
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('uploadForm');
+            const fileInput = document.getElementById('fileInput');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const progressBar = document.getElementById('progressBar');
+            const progressContainer = document.querySelector('.progress');
+            const status = document.getElementById('status');
+            
+            // 屏幕常亮相关变量
+            const wakeLockToggle = document.getElementById('wakeLockToggle');
+            const wakeStatus = document.getElementById('wakeStatus');
+            let wakeLock = null;
+
+            // --- 屏幕常亮逻辑开始 ---
+            
+            // 请求屏幕常亮
+            async function requestWakeLock() {
+                try {
+                    if ('wakeLock' in navigator) {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                        wakeStatus.style.display = 'inline';
+                        console.log('Screen Wake Lock 已激活');
+                        
+                        wakeLock.addEventListener('release', () => {
+                            console.log('Screen Wake Lock 已释放');
+                            wakeStatus.style.display = 'none';
+                            // 如果不是因为取消勾选而释放（比如系统自动释放），则取消勾选
+                            if(wakeLockToggle.checked && document.visibilityState === 'visible') {
+                                wakeLockToggle.checked = false; 
+                            }
+                        });
+                    } else {
+                        status.textContent = '您的浏览器不支持屏幕常亮功能';
+                        wakeLockToggle.disabled = true;
+                    }
+                } catch (err) {
+                    console.error(`${err.name}, ${err.message}`);
+                    status.textContent = '无法激活屏幕常亮 (需HTTPS或本地环境)';
+                    wakeLockToggle.checked = false;
+                }
+            }
+
+            // 释放屏幕常亮
+            async function releaseWakeLock() {
+                if (wakeLock !== null) {
+                    await wakeLock.release();
+                    wakeLock = null;
+                    wakeStatus.style.display = 'none';
+                }
+            }
+
+            // 监听复选框变化
+            wakeLockToggle.addEventListener('change', async () => {
+                if (wakeLockToggle.checked) {
+                    await requestWakeLock();
+                } else {
+                    await releaseWakeLock();
+                }
+            });
+
+            // 处理页面可见性变化 (当切换标签页回来时重新获取锁)
+            document.addEventListener('visibilitychange', async () => {
+                if (wakeLock !== null && document.visibilityState === 'visible') {
+                    await requestWakeLock();
+                }
+            });
+            
+            // --- 屏幕常亮逻辑结束 ---
+
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                uploadFiles();
+            });
+            
+            async function uploadFiles() {
+                const files = fileInput.files;
+                if (files.length === 0) {
+                    status.textContent = '请先选择文件';
+                    return;
+                }
+                
+                // 如果用户没有手动开启常亮，上传开始时自动尝试开启，上传结束后关闭
+                // 也可以根据需求取消这个自动行为，只保留手动开关
+                let autoWakeLock = false;
+                if (!wakeLockToggle.checked) {
+                    wakeLockToggle.checked = true;
+                    await requestWakeLock();
+                    autoWakeLock = true; 
+                }
+
+                uploadBtn.disabled = true;
+                status.textContent = '开始上传...';
+                progressContainer.style.display = 'block';
+                
+                try {
+                    for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
+                        await uploadSingleFile(file, i + 1, files.length);
+                    }
+                    status.textContent = `所有文件上传完成！共 ${files.length} 个文件`;
+                    fileInput.value = '';
+                } catch (error) {
+                    console.error(error);
+                } finally {
+                    uploadBtn.disabled = false;
+                    
+                    // 如果是自动开启的常亮，上传完后自动关闭
+                    if (autoWakeLock) {
+                        wakeLockToggle.checked = false;
+                        await releaseWakeLock();
+                    }
+                }
+            }
+            
+            function uploadSingleFile(file, current, total) {
+                return new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    xhr.upload.addEventListener('progress', function(e) {
+                        if (e.lengthComputable) {
+                            const percentComplete = (e.loaded / e.total) * 100;
+                            progressBar.style.width = percentComplete + '%';
+                            status.textContent = 
+                                `上传中 (${current}/${total}): ${file.name} - ${Math.round(percentComplete)}%`;
+                        }
+                    });
+                    
+                    xhr.addEventListener('load', function() {
+                        if (xhr.status === 200) {
+                            status.textContent = `文件 ${file.name} 上传成功`;
+                            resolve(xhr.responseText);
+                        } else {
+                            status.textContent = `文件 ${file.name} 上传失败`;
+                            reject(new Error(`上传失败: ${xhr.status}`));
+                        }
+                    });
+                    
+                    xhr.addEventListener('error', function() {
+                        status.textContent = `文件 ${file.name} 上传错误`;
+                        reject(new Error('上传过程中发生错误'));
+                    });
+                    
+                    // 这里的路径保持原样，请确保后端路径正确
+                    xhr.open('POST', '/cgi-bin/upload.py');
+                    xhr.send(formData);
+                });
+            }
+            
+            // 拖拽支持
+            fileInput.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                fileInput.style.borderColor = '#007AFF';
+                fileInput.style.backgroundColor = '#f0f7ff';
+            });
+            
+            fileInput.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                fileInput.style.borderColor = '#ddd';
+                fileInput.style.backgroundColor = 'white';
+            });
+            
+            fileInput.addEventListener('drop', (e) => {
+                e.preventDefault();
+                fileInput.style.borderColor = '#ddd';
+                fileInput.style.backgroundColor = 'white';
+                fileInput.files = e.dataTransfer.files;
+            });
+        });
+    </script>
+</body>
+</html>

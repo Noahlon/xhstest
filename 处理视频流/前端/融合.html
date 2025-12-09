@@ -1,0 +1,1818 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>多平台视频对比与帧数计算工具</title>
+    <style>
+        /* 遮罩：可阻止穿透，视觉弱化页面 */
+        #popMask {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, .08);
+            z-index: 9998;
+            display: none;
+        }
+
+        /* 提示框：右上角绝对定位 */
+        #tipBox {
+            --w: 220px;
+            --h: 44px;
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            width: var(--w);
+            height: var(--h);
+            line-height: var(--h);
+            padding: 0 14px;
+            background: #ff794d;
+            color: #fff;
+            font-size: 14px;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, .15);
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: opacity .3s, transform .3s;
+            z-index: 9999;
+            white-space: nowrap;
+        }
+
+        #tipBox.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+    <style>
+        /* ================= 全局布局样式 ================= */
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-main: #e0e0e0;
+            --text-muted: #a0a0a0;
+            --accent-color: #3b82f6;
+            --accent-hover: #2563eb;
+            --border-color: #333;
+            --success-color: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Segoe UI, Tahoma, Arial, sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+        }
+
+        /* 左侧视频区 */
+        .split-left {
+            flex: 1;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            min-width: 0;
+            /* 防止flex子项溢出 */
+            border-right: 1px solid #333;
+        }
+
+        /* 右侧计算区 */
+        .split-right {
+            width: 480px;
+            /* 固定宽度 */
+            min-width: 400px;
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            /* 原计算器背景 */
+            overflow-y: auto;
+            /* 允许垂直滚动 */
+            padding: 10px;
+            box-shadow: -5px 0 15px rgba(0, 0, 0, 0.3);
+            z-index: 10;
+        }
+
+        /* ================= 左侧视频区样式 (原页面2) ================= */
+        .video-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            /* 稍微调小最小宽度以适应分栏 */
+            gap: 12px;
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+            margin-bottom: 10px;
+        }
+
+        .video-card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .video-header {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-replace {
+            font-size: 11px;
+            background: transparent;
+            border: 1px solid #444;
+            color: #888;
+            border-radius: 4px;
+            padding: 2px 6px;
+            cursor: pointer;
+        }
+
+        .btn-replace:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            flex: 1;
+            background: #000;
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            min-height: 150px;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        video:focus {
+            outline: none;
+        }
+
+        .video-wrapper:has(video:focus) {
+            box-shadow: 0 0 0 2px var(--accent-color);
+        }
+
+        .upload-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .video-wrapper.has-video .upload-overlay {
+            opacity: 0;
+        }
+
+        .icon-upload {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .controls-area {
+            background: var(--card-bg);
+            border-top: 1px solid var(--border-color);
+            padding: 12px 15px;
+            border-radius: 12px;
+        }
+
+        .timeline-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+
+        #seek {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 6px;
+            background: #444;
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        #seek::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .frame-display {
+            font-family: 'Courier New', Courier, monospace;
+            background: #000;
+            color: var(--accent-color);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            min-width: 100px;
+            text-align: center;
+            border: 1px solid #333;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .left-tools,
+        .right-tools {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn {
+            background: #333;
+            color: var(--text-main);
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn:hover {
+            background: #444;
+        }
+
+        .btn-primary {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .input-group input {
+            background: #333;
+            border: 1px solid #444;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            width: 50px;
+            text-align: center;
+        }
+
+        .shortcuts {
+            font-size: 11px;
+            color: #666;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .key {
+            background: #2a2a2a;
+            padding: 1px 5px;
+            border-radius: 3px;
+            border: 1px solid #333;
+            font-family: monospace;
+            color: #aaa;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* ================= 右侧计算区样式 (原页面1) ================= */
+        /* 调整 container 样式以适应右侧栏 */
+        .calc-container {
+            background: rgba(255, 255, 255, .95);
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, .15);
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 20px;
+            /* 底部留白 */
+        }
+
+        h1 {
+            font-size: 18px;
+            color: #1a2a6c;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .calc-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .calc-controls label {
+            font-size: 12px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .calc-controls select,
+        .calc-controls input[type="number"],
+        .calc-controls input.case-input {
+            padding: 4px 6px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .fps-select {
+            width: 100px;
+        }
+
+        .case-select {
+            width: 100%;
+            margin-top: 5px;
+            margin-bottom: 5px;
+        }
+
+        .custom-fps {
+            display: none;
+            width: 80px;
+        }
+
+        .case-input {
+            width: 100%;
+        }
+
+        .time-group {
+            border: 1px dashed #1a2a6c;
+            border-radius: 8px;
+            padding: 6px 8px;
+            margin-bottom: 8px;
+            background: #f8f9fa;
+        }
+
+        .time-group h3 {
+            font-size: 14px;
+            color: #1a2a6c;
+            margin-bottom: 4px;
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            flex-wrap: wrap;
+            margin-bottom: 4px;
+        }
+
+        .row label.inline {
+            font-size: 11px;
+            color: #333;
+            min-width: 30px;
+        }
+
+        input.timecode {
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 12px;
+            width: 70px;
+            text-align: center;
+        }
+
+        input.inputfps {
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 12px;
+            width: 80px;
+            text-align: center;
+        }
+
+        input.inputpath {
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 12px;
+            width: 100%;
+            text-align: left;
+            margin-top: 2px;
+        }
+
+        .result-line {
+            font-size: 14px;
+            font-weight: 700;
+            color: #b21f1f;
+            text-align: center;
+            margin-top: 2px;
+            display: none;
+        }
+
+        .calc-text {
+            font-family: monospace;
+            font-size: 10px;
+            color: #555;
+            background: #e9ecef;
+            border-radius: 6px;
+            padding: 4px;
+            margin-top: 4px;
+            word-break: break-all;
+        }
+
+        .copy-btn {
+            padding: 3px 6px;
+            border-radius: 6px;
+            border: 1px solid #bbb;
+            background: #fff;
+            font-size: 11px;
+            cursor: pointer;
+            min-width: 50px;
+        }
+
+        .copy-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 进度条适配 */
+        .progress-section {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .progress-container {
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .progress-bar {
+            position: absolute;
+            height: 4px;
+            background-color: #e0e0e0;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+            width: 100%;
+            z-index: 1;
+            border-radius: 2px;
+        }
+
+        .progress {
+            position: absolute;
+            height: 4px;
+            background-color: #4CAF50;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+            width: 0%;
+            z-index: 2;
+            border-radius: 2px;
+            transition: width 0.5s ease;
+        }
+
+        .step {
+            width: 24px;
+            height: 24px;
+            background-color: #fff;
+            border: 2px solid #e0e0e0;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: #999;
+            z-index: 3;
+            font-size: 10px;
+            transition: all 0.4s ease;
+        }
+
+        .step.active {
+            border-color: #4CAF50;
+            background-color: #4CAF50;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .step.completed {
+            border-color: #4CAF50;
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .step.completed::after {
+            content: "✓";
+            font-size: 12px;
+        }
+
+        .progress-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .progress-btn {
+            padding: 6px 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .progress-btn:hover {
+            background-color: #3d8b40;
+        }
+
+        .progress-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .progress-status {
+            text-align: center;
+            margin-top: 5px;
+            font-size: 12px;
+            color: #555;
+        }
+
+        /* 底部按钮区 */
+        .action-buttons {
+            text-align: center;
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .action-btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            color: white;
+            background: #1a2a6c;
+        }
+
+        .action-btn:hover {
+            opacity: 0.9;
+        }
+
+        .clip-btn {
+            background: #b21f1f;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 弹出提示 -->
+    <div id="tipBox">操作成功 🎉</div>
+    <div id="popMask"></div>
+
+    <!-- ================= 左侧面板：视频播放器 ================= -->
+    <div class="split-left">
+        <div class="video-container">
+            <!-- 抖音 -->
+            <div class="video-card">
+                <div class="video-header">
+                    <span>抖音</span>
+                    <button class="btn-replace" onclick="triggerUpload(0)">替换视频</button>
+                </div>
+                <div class="video-wrapper" onclick="handleWrapperClick(0)">
+                    <video class="v" muted tabindex="0"></video>
+                    <div class="upload-overlay">
+                        <span class="icon-upload">⊕</span>
+                        <span>点击上传</span>
+                    </div>
+                </div>
+                <input class="f" type="file" accept="video/*" />
+            </div>
+
+            <!-- 小红书 -->
+            <div class="video-card">
+                <div class="video-header">
+                    <span>小红书</span>
+                    <button class="btn-replace" onclick="triggerUpload(1)">替换视频</button>
+                </div>
+                <div class="video-wrapper" onclick="handleWrapperClick(1)">
+                    <video class="v" muted tabindex="0"></video>
+                    <div class="upload-overlay">
+                        <span class="icon-upload">⊕</span>
+                        <span>点击上传</span>
+                    </div>
+                </div>
+                <input class="f" type="file" accept="video/*" />
+            </div>
+
+            <!-- 快手 -->
+            <div class="video-card">
+                <div class="video-header">
+                    <span>快手</span>
+                    <button class="btn-replace" onclick="triggerUpload(2)">替换视频</button>
+                </div>
+                <div class="video-wrapper" onclick="handleWrapperClick(2)">
+                    <video class="v" muted tabindex="0"></video>
+                    <div class="upload-overlay">
+                        <span class="icon-upload">⊕</span>
+                        <span>点击上传</span>
+                    </div>
+                </div>
+                <input class="f" type="file" accept="video/*" />
+            </div>
+        </div>
+
+        <!-- 底部控制区 -->
+        <div class="controls-area">
+            <div class="timeline-row">
+                <input id="seek" type="range" min="0" max="100" step="0.01" value="0" />
+                <div id="frameCode" class="frame-display">00:00:00</div>
+            </div>
+
+            <div class="toolbar">
+                <div class="left-tools">
+                    <div class="input-group">
+                        <label>播放器FPS</label>
+                        <input id="fpsInput" type="number" value="30" min="1" />
+                    </div>
+                    <button id="copyFrameBtn" class="btn btn-primary">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+                            viewBox="0 0 24 24">
+                            <path
+                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z">
+                            </path>
+                        </svg>
+                        复制帧号
+                    </button>
+                </div>
+
+                <div class="right-tools shortcuts">
+                    <span><span class="key">←/→</span> 逐帧</span>
+                    <span><span class="key">Shift</span>+<span class="key">←/→</span> 10帧</span>
+                    <span><span class="key">Ctrl</span>+<span class="key">C</span> 复制帧号</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= 右侧面板：计算器与记录表 ================= -->
+    <div class="split-right">
+        <div class="calc-container">
+            <!-- 进度条部分 -->
+            <div class="progress-section">
+                <div class="progress-container">
+                    <div class="progress-bar"></div>
+                    <div class="progress" id="progress"></div>
+                    <!-- Steps will be generated by JS -->
+                </div>
+                <div class="progress-status" id="progressStatus">当前进度: 1/16 - 冷启场景</div>
+
+                <div class="progress-controls">
+                    <button class="progress-btn" id="prevBtn" disabled>上一步</button>
+                    <button class="progress-btn" id="nextBtn">下一步</button>
+                    <button class="progress-btn" id="resetBtn">重置</button>
+                </div>
+            </div>
+
+            <!-- 控制与输入 -->
+            <div class="calc-controls">
+                <label for="fps">基准FPS</label>
+                <select id="fps" class="fps-select">
+                    <option value="23.976">23.976</option>
+                    <option value="24">24</option>
+                    <option value="25">25</option>
+                    <option value="29.97">29.97</option>
+                    <option value="30" selected>30</option>
+                    <option value="50">50</option>
+                    <option value="60">60</option>
+                    <option value="custom">自定义</option>·
+                </select>
+                <input type="number" id="custom-fps" class="custom-fps" placeholder="FPS" min="1" step="0.001" />
+
+                <select id="case-select" class="case-select"></select>
+                <input class="case-input" id="output-path" placeholder="请输入测试场景 eg:上海12号线早高峰" />
+            </div>
+
+            <!-- 计算组 -->
+            <div id="groups"></div>
+
+            <!-- 按钮组 -->
+            <div class="action-buttons">
+                <button id="save-btn" class="action-btn">保存结果</button>
+                <button id="export-btn" class="action-btn">导出Excel</button>
+                <button id="clip-btn" class="action-btn clip-btn">剪辑所有</button>
+                <button id="clip-single-btn" class="action-btn clip-btn">剪辑单个</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ================= SCRIPTS ================= -->
+    <script>
+        // 弹框
+        function showTip(isSuccess=1, message="") {
+            const tip = document.getElementById('tipBox');
+            const mask = document.getElementById('popMask');
+
+            if (isSuccess) {
+                tip.textContent = message + '操作成功 🎉';
+                tip.style.background = '#ff794d';      // 保持原配色
+            } else {
+                tip.textContent = message + '操作失败 ❌';
+                tip.style.background = '#ff4b4b';      // 失败色
+            }
+            // 显示遮罩 & 提示
+            mask.style.display = 'block';
+            tip.classList.add('show');
+
+            // 2 秒后自动收回
+            setTimeout(() => {
+                tip.classList.remove('show');
+                mask.style.display = 'none';
+            }, 2000);
+
+        }
+        /* =========================================
+           PART 1: 视频播放器逻辑 (左侧)
+           ========================================= */
+        const videos = document.querySelectorAll('.v');
+        const inputs = document.querySelectorAll('.f');
+        const wrappers = document.querySelectorAll('.video-wrapper');
+        const fpsInput = document.getElementById('fpsInput');
+        const seekBar = document.getElementById('seek');
+        const frameCode = document.getElementById('frameCode');
+        const copyFrameBtn = document.getElementById('copyFrameBtn');
+
+        // 触发文件选择
+        function triggerUpload(index) {
+            inputs[index].click();
+        }
+
+        // Wrapper 点击逻辑
+        function handleWrapperClick(index) {
+            const v = videos[index];
+            if (v.readyState === 0) {
+                triggerUpload(index);
+            }
+        }
+        // 帧数差计算函数
+        function formatTimecode(startTimecode, endTimecode) {
+            if (typeof startTimecode !== 'string' || typeof endTimecode !== 'string' ||
+                startTimecode.length !== 6 || endTimecode.length !== 6) {
+                throw new Error("时间码必须是6位字符串，格式为 MMSSFF");
+            }
+
+            // 解析起始时间码
+            const startMin = parseInt(startTimecode.substring(0, 2), 10);
+            const startSec = parseInt(startTimecode.substring(2, 4), 10);
+            const startFrame = parseInt(startTimecode.substring(4, 6), 10);
+
+            // 解析结束时间码
+            const endMin = parseInt(endTimecode.substring(0, 2), 10);
+            const endSec = parseInt(endTimecode.substring(2, 4), 10);
+            const endFrame = parseInt(endTimecode.substring(4, 6), 10);
+
+            // 转为总帧数（30fps）
+            const startTotalFrames = (startMin * 60 + startSec) * 30 + startFrame;
+            const endTotalFrames = (endMin * 60 + endSec) * 30 + endFrame;
+
+            // 返回帧数差
+            return endTotalFrames - startTotalFrames;
+        }
+
+        inputs.forEach((input, i) => {
+            input.addEventListener('change', e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+
+                // 保存文件名到 localStorage，供右侧计算器使用
+                const keys = ['douyin', 'xiaohongshu', 'kuaishou'];
+                localStorage.setItem(keys[i], file.name);
+                console.log('已保存到本地存储:', keys[i], file.name);
+                if (i === 0) {
+                    douyinPath = clipPathPrefix + "抖音/" + file.name;
+                } else if (i === 1) {
+                    xiaohongshuPath = clipPathPrefix + "小红书/" + file.name;
+                } else if (i === 2) {
+                    kuaishouPath = clipPathPrefix + "/快手/" + file.name;
+                }
+                console.log('更新剪辑路径:', douyinPath, xiaohongshuPath, kuaishouPath);
+
+                // 触发计算器路径输入框更新 (如果存在)
+                const pathInputs = [document.getElementById('path1'), document.getElementById('path2'), document.getElementById('path3')];
+                if (pathInputs[i]) {
+                    // 这里模拟触发一下，虽然计算器逻辑主要靠 input 事件更新全局变量
+                    // 但我们可以尝试更新显示
+                    // pathInputs[i].value 实际上通常用于显示或手动修正，
+                    // 下面代码中的 douyinPath 变量更新会在 PathInput 的 listener 中处理
+                    // 这里我们手动刷新一下页面上的路径逻辑
+                    // (注：原逻辑主要靠手动输入或预设，这里融合后可以更智能，但遵循"不改逻辑"原则，保持原样)
+                }
+
+                const url = URL.createObjectURL(file);
+                videos[i].src = url;
+                videos[i].load();
+                videos[i].pause();
+
+                wrappers[i].classList.add('has-video');
+            });
+        });
+
+        videos.forEach(v => {
+            v.addEventListener('click', (e) => {
+                if (v.readyState > 0) {
+                    e.stopPropagation();
+                    v.focus();
+                }
+            });
+            v.addEventListener('loadedmetadata', () => {
+                if (seekBar.max == 100 || v.duration > seekBar.max) {
+                    seekBar.max = v.duration;
+                }
+            });
+            v.addEventListener('timeupdate', updateUI);
+        });
+
+        function jump(frames) {
+            const mainVideo = Array.from(videos).find(v => v.readyState > 0);
+            if (!mainVideo) return;
+
+            const fps = +fpsInput.value || 30;
+            const dt = frames / fps;
+            const t0 = mainVideo.currentTime + dt;
+            const newTime = Math.min(Math.max(0, t0), mainVideo.duration);
+
+            videos.forEach(v => { if (v.readyState > 0) v.currentTime = newTime });
+        }
+
+        // 键盘事件监听 (仅当焦点不在输入框时)
+        document.addEventListener('keydown', async e => {
+            // 如果正在输入文字，不触发视频快捷键
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+
+            const mainVideo = Array.from(videos).find(v => v.readyState > 0);
+
+            // 左右键控制帧
+            if (mainVideo && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+                e.preventDefault();
+                const dir = e.key === 'ArrowRight' ? 1 : -1;
+                const mult = e.shiftKey ? 10 : 1;
+                jump(dir * mult);
+            }
+            // A D 键控制帧 (备用)
+            if (mainVideo && (e.key.toLowerCase() === 'd' || e.key.toLowerCase() === 'a')) {
+                e.preventDefault();
+                const dir = e.key.toLowerCase() === 'd' ? 1 : -1;
+                const mult = e.shiftKey ? 10 : 1;
+                jump(dir * mult);
+            }
+            // 空格键播放/暂停
+            if (mainVideo && e.key === ' ') {
+                e.preventDefault();
+                if (mainVideo.paused) {
+                    videos.forEach(v => { if (v.readyState > 0) v.play(); });
+                } else {
+                    videos.forEach(v => { if (v.readyState > 0) v.pause(); });
+                }
+            }
+
+
+            // 复制功能 (Cmd/Ctrl + C)
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') {
+                e.preventDefault();
+                const active = document.activeElement;
+
+                // 1. 复制画面 (如果聚焦在视频上)
+                if (active && active.tagName === 'VIDEO' && active.readyState > 0 && !e.altKey) {
+                    try {
+                        const w = active.videoWidth;
+                        const h = active.videoHeight;
+                        const canvas = document.createElement('canvas');
+                        canvas.width = w; canvas.height = h;
+                        canvas.getContext('2d').drawImage(active, 0, 0, w, h);
+                        canvas.toBlob(async blob => {
+                            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                            // 视觉反馈
+                            active.parentElement.style.boxShadow = '0 0 0 4px var(--success-color)';
+                            setTimeout(() => active.parentElement.style.boxShadow = '', 300);
+                        });
+                    } catch (err) { }
+                    return;
+                }
+
+                // 2. 复制帧号 (默认)
+                await copyFrameCode();
+            }
+        });
+
+        seekBar.addEventListener('input', () => {
+            const t = +seekBar.value;
+            videos.forEach(v => { if (v.readyState > 0) v.currentTime = t; });
+            updateFrameText(t);
+        });
+
+        function updateFrameText(t) {
+            const fps = +fpsInput.value || 30;
+            const mm = String(Math.floor(t / 60)).padStart(2, '0');
+            const ss = String(Math.floor(t % 60)).padStart(2, '0');
+            const currentFrame = Math.floor((t % 1) * fps);
+            const ff = String(currentFrame).padStart(2, '0').slice(0, 2);
+            frameCode.textContent = `${mm}:${ss}:${ff}`;
+        }
+
+        function updateUI() {
+            const t = this.currentTime;
+            if (!isNaN(t)) {
+                if (document.activeElement !== seekBar) seekBar.value = t;
+                updateFrameText(t);
+            }
+        }
+
+        async function copyFrameCode() {
+            const text = frameCode.textContent.replace(/:/g, ''); // 复制格式为 000000
+            try {
+                await navigator.clipboard.writeText(text);
+                const originalText = copyFrameBtn.innerHTML;
+                copyFrameBtn.innerHTML = `<span style="color:#fff">✓ 已复制</span>`;
+                copyFrameBtn.style.background = 'var(--success-color)';
+                setTimeout(() => {
+                    copyFrameBtn.innerHTML = originalText;
+                    copyFrameBtn.style.background = '';
+                }, 1000);
+            } catch (err) { console.error(err); }
+        }
+        copyFrameBtn.addEventListener('click', copyFrameCode);
+
+        /* =========================================
+           PART 2: 计算器逻辑 (右侧)
+           ========================================= */
+
+        // 剪辑路径前缀
+        const clipPathPrefix = '/Users/liuqianlong/Desktop/video/第五轮测试/';
+        // 默认剪辑路径变量
+        let douyinPath = clipPathPrefix + '抖音/2025_11_18_18_04_10_IMG_0262.MP4';
+        let xiaohongshuPath = clipPathPrefix + '小红书/2025_11_18_18_04_12_IMG_0311.MP4';
+        let kuaishouPath = clipPathPrefix + '快手/2025_11_18_18_04_10_IMG_0263.MP4';
+
+        // 导出路径
+        let outputPath = './output/上海12号线早高峰/';
+
+        // key 和 case 映射
+        const caseMap = {
+            "1": "首刷", "2": "冷启场景1", "3": "冷启场景2", "4": "冷启场景3",
+            "5": "首页上拉刷新1", "6": "首页上拉刷新2", "7": "首页上拉刷新3",
+            "8": "首页下滑刷新1", "9": "首页下滑刷新2", "10": "首页下滑刷新3",
+            "11": "视频内流1", "12": "视频内流2", "13": "视频内流3",
+            "14": "搜索1", "15": "搜索2", "16": "个人页",
+            "17": "上传图片", "18": "上传视频"
+        };
+        const countCase = Object.keys(caseMap).length;
+        let datas = {};
+        for (const key in caseMap) { datas[key] = {}; }
+        let negdata = {
+        };
+        let resdata = {};
+
+        // 初始化case选择框
+        const caseSelect = document.getElementById('case-select');
+        for (const key in caseMap) {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = caseMap[key];
+            caseSelect.appendChild(option);
+        }
+
+        const progressContainer = document.querySelector('.progress-container');
+        // 生成步骤圆点
+        for (let i = 1; i <= countCase; i++) {
+            const step = document.createElement('div');
+            step.classList.add('step');
+            step.setAttribute('data-step', i);
+            step.textContent = i;
+            progressContainer.appendChild(step);
+        }
+
+        // 存储导出数据逻辑
+        function setdatas() {
+
+            let douyinfps = '-',
+                xiaohongshufps = '-',
+                kuaishoufps = '-';
+
+            // 遍历 0, 1, 2
+            for (let i = 0; i < 3; i++) {
+                const index = i + 1; // 1, 2, 3
+                const startInput = document.getElementById(`start${index}`).value;
+                const endInput = document.getElementById(`end${index}`).value;
+
+                // 必须有值才计算，避免空输入报错
+                if (startInput && endInput) {
+                    const fpsDiff = formatTimecode(startInput, endInput);
+
+                    if (i === 0) {
+                        douyinfps = fpsDiff;
+                    } else if (i === 1) {
+                        xiaohongshufps = fpsDiff;
+                    } else if (i === 2) {
+                        kuaishoufps = fpsDiff;
+                    }
+                }
+                // 如果为空，保持 '-'
+            }
+
+            // fps不为数字则不保存
+            if (isNaN(douyinfps) || isNaN(xiaohongshufps) || isNaN(kuaishoufps)) {
+                console.log('数据不完整，无法保存');
+                return false;
+            }
+
+            const key = document.getElementById('case-select').value;
+
+            // ▼▼▼ 修改点在这里 ▼▼▼
+            datas[key] = {
+                "抖音": {
+                    fps: douyinfps,
+                    start_time: document.getElementById('start1').value,
+                    end_time: document.getElementById('end1').value,
+                    caseName: caseMap[key],
+                },
+                "小红书": {
+                    fps: xiaohongshufps,
+                    start_time: document.getElementById('start2').value,
+                    end_time: document.getElementById('end2').value,
+                    caseName: caseMap[key],
+                },
+                "快手": {
+                    fps: kuaishoufps,
+                    start_time: document.getElementById('start3').value,
+                    end_time: document.getElementById('end3').value,
+                    caseName: caseMap[key],
+                },
+            }; // <--- 必须加上这个分号！
+
+            // 清空输入框
+            document.getElementById('start1').value = '';
+            document.getElementById('end1').value = '';
+            document.getElementById('start2').value = '';
+            document.getElementById('end2').value = '';
+            document.getElementById('start3').value = '';
+            document.getElementById('end3').value = '';
+            document.getElementById('result1').textContent = '—';
+            document.getElementById('result2').textContent = '—';
+            document.getElementById('result3').textContent = '—';
+            document.getElementById('calc1').textContent = '等待输入...';
+            document.getElementById('calc2').textContent = '等待输入...';
+            document.getElementById('calc3').textContent = '等待输入...';
+            // 如果有单次剪辑需求
+            clipSingleVideo(key);
+            return true;
+        }
+
+        // 进度条相关
+        let currentStep = 1;
+        function initProgressBar() {
+            const steps = document.querySelectorAll('.step');
+            const progress = document.getElementById('progress');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const progressStatus = document.getElementById('progressStatus');
+            const caseSelect = document.getElementById('case-select');
+
+            function updateProgress() {
+                const progressWidth = ((currentStep - 1) / (countCase - 1)) * 100;
+                progress.style.width = `${progressWidth}%`;
+
+                steps.forEach((step, index) => {
+                    const stepNumber = parseInt(step.getAttribute('data-step'));
+                    if (stepNumber < currentStep) {
+                        step.classList.add('completed'); step.classList.remove('active');
+                    } else if (stepNumber === currentStep) {
+                        step.classList.add('active'); step.classList.remove('completed');
+                    } else {
+                        step.classList.remove('active', 'completed');
+                    }
+                });
+
+                progressStatus.textContent = `当前进度: ${currentStep}/${countCase} - ${caseMap[currentStep]}`;
+                prevBtn.disabled = currentStep === 1;
+                nextBtn.disabled = currentStep === countCase;
+                caseSelect.value = currentStep;
+
+                if (currentStep === countCase) {
+                    setdatas();
+                    progressStatus.textContent = `完成: ${currentStep}/${countCase} - ${caseMap[currentStep]}`;
+                }
+            }
+
+            nextBtn.addEventListener('click', function () {
+                if (!setdatas()) { alert('请输入所有必要的信息'); return; }
+                if (currentStep < countCase) { currentStep++; updateProgress(); }
+            });
+
+            prevBtn.addEventListener('click', function () {
+                if (currentStep > 1) { currentStep--; updateProgress(); }
+            });
+
+            resetBtn.addEventListener('click', function () {
+                currentStep = 1; updateProgress();
+            });
+
+            caseSelect.addEventListener('change', function () {
+                currentStep = parseInt(this.value); updateProgress();
+            });
+
+            updateProgress();
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            initProgressBar();
+
+            // 构建输入组
+            const platforms = ['抖音', '小红书', '快手'];
+            const groups = document.getElementById('groups');
+            const fpsSelect = document.getElementById('fps');
+            const customFpsInput = document.getElementById('custom-fps');
+
+            platforms.forEach((name, i) => {
+                const idx = i + 1;
+                const box = document.createElement('div');
+                box.className = 'time-group';
+                box.innerHTML = `
+                      <h3>${name}</h3>
+                      <div class="row">
+                        <label class="inline">开始:</label>
+                        <input class="timecode" id="start${idx}" placeholder="010029" />
+                        <label class="inline">结束:</label>
+                        <input class="timecode" id="end${idx}" placeholder="010129" />
+                        <button class="copy-btn" id="copy${idx}" disabled>复制</button>
+
+                      </div>
+                      <div class="row">
+                        <input class="inputfps" id="framecount${idx}" placeholder="输入帧数" />
+                        <input class="inputpath" id="path${idx}" placeholder="请输入路径" />
+                      </div>
+                      <div class="result-line" id="resLine${idx}">帧数差: <span id="result${idx}">—</span> 帧</div>
+                      <div class="calc-text" id="calc${idx}">等待输入...</div>
+                    `;
+                groups.appendChild(box);
+            });
+            // 输入框输入事件
+            // const inputlist = document.querySelectorAll('input');
+            let inputlist = []
+            inputlist.push(document.getElementById('start1'));
+            inputlist.push(document.getElementById('end1'));
+            inputlist.push(document.getElementById('start2'));
+            inputlist.push(document.getElementById('end2'));
+            inputlist.push(document.getElementById('start3'));
+            inputlist.push(document.getElementById('end3'));
+
+            inputlist.forEach(input => {
+                input.addEventListener('focus', function () {
+                    // 获取当前帧
+                    this.value = document.getElementById('frameCode').textContent.replace(/:/g, '');
+                    this.blur();
+                });
+            });
+            // 帧率事件
+            fpsSelect.addEventListener('change', () => {
+                customFpsInput.style.display = fpsSelect.value === 'custom' ? 'inline-block' : 'none';
+                calculateAll();
+            });
+            customFpsInput.addEventListener('input', calculateAll);
+            groups.addEventListener('input', calculateAll);
+
+            // 复制事件
+            for (let i = 1; i <= 3; i++) {
+                const btn = document.getElementById(`copy${i}`);
+                btn.addEventListener('click', async () => {
+                    const res = document.getElementById(`result${i}`).textContent;
+                    try {
+                        await navigator.clipboard.writeText(res);
+                        btn.textContent = '已复制';
+                        setTimeout(() => { btn.textContent = '复制'; }, 1000);
+                    } catch { }
+                });
+            }
+
+            function calculateAll() {
+                for (let i = 1; i <= 3; i++) calculate(i);
+            }
+
+            function calculate(i) {
+                const s = document.getElementById(`start${i}`).value.trim();
+                const e = document.getElementById(`end${i}`).value.trim();
+                const resEl = document.getElementById(`result${i}`);
+                const resLine = document.getElementById(`resLine${i}`);
+                const calcEl = document.getElementById(`calc${i}`);
+                const copyBtn = document.getElementById(`copy${i}`);
+
+                const start = parseTC(s), end = parseTC(e);
+                let fps = fpsSelect.value === 'custom' ? parseFloat(customFpsInput.value) : parseFloat(fpsSelect.value);
+                if (!(fps > 0)) fps = 0;
+
+                if (start && end && fps > 0) {
+                    const startFrames = (start.minutes * 60 + start.seconds) * fps + start.frames;
+                    const endFrames = (end.minutes * 60 + end.seconds) * fps + end.frames;
+                    const diff = endFrames - startFrames;
+
+                    const timeDiff = { minutes: end.minutes - start.minutes, seconds: end.seconds - start.seconds, frames: end.frames - start.frames };
+                    if (timeDiff.frames < 0) { timeDiff.frames += fps; timeDiff.seconds--; }
+                    if (timeDiff.seconds < 0) { timeDiff.seconds += 60; timeDiff.minutes--; }
+
+                    const diffRound = Math.round(diff);
+                    resEl.textContent = diffRound;
+                    resLine.style.display = 'block';
+                    calcEl.textContent = `${fmt(start)}→${fmt(end)} | ${timeDiff.minutes}分${timeDiff.seconds}秒${Math.round(timeDiff.frames)}帧`;
+                    copyBtn.disabled = false;
+                } else {
+                    resEl.textContent = '—';
+                    resLine.style.display = 'none';
+                    calcEl.textContent = '请输入有效时间码';
+                    copyBtn.disabled = true;
+                }
+            }
+
+            function parseTC(str) {
+                if (!str || str.length !== 6) return null;
+                const m = parseInt(str.slice(0, 2)), s = parseInt(str.slice(2, 4)), f = parseInt(str.slice(4, 6));
+                if (Number.isNaN(m) || Number.isNaN(s) || Number.isNaN(f) || s >= 60 || m < 0 || s < 0 || f < 0) return null;
+                return { minutes: m, seconds: s, frames: f };
+            }
+            function fmt(t) { return `${t.minutes.toString().padStart(2, '0')}:${t.seconds.toString().padStart(2, '0')}:${t.frames.toString().padStart(2, '0')}`; }
+
+            // 路径输入框联动初始化
+            const douyinPathInput = document.getElementById('path1');
+            const xiaohongshuPathInput = document.getElementById('path2');
+            const kuaishouPathInput = document.getElementById('path3');
+            const outputPathInput = document.getElementById('output-path');
+
+            // 读取 localstorage 更新到输入框显示
+            if (douyinPathInput && localStorage.getItem('douyin')) douyinPathInput.value = localStorage.getItem('douyin');
+            if (xiaohongshuPathInput && localStorage.getItem('xiaohongshu')) xiaohongshuPathInput.value = localStorage.getItem('xiaohongshu');
+            if (kuaishouPathInput && localStorage.getItem('kuaishou')) kuaishouPathInput.value = localStorage.getItem('kuaishou');
+
+            douyinPathInput?.addEventListener('input', () => {
+                douyinPath = clipPathPrefix + douyinPathInput.value + '/' + localStorage.getItem('douyin');
+            });
+            xiaohongshuPathInput?.addEventListener('input', () => {
+                xiaohongshuPath = clipPathPrefix + xiaohongshuPathInput.value + '/' + localStorage.getItem('xiaohongshu');
+            });
+            kuaishouPathInput?.addEventListener('input', () => {
+                kuaishouPath = clipPathPrefix + kuaishouPathInput.value + '/' + localStorage.getItem('kuaishou');
+            });
+            outputPathInput?.addEventListener('input', () => {
+                outputPath = './output/' + outputPathInput.value + '/';
+                if (!outputPath.endsWith('/')) outputPath += '/';
+            });
+        });
+
+
+
+
+
+        // 评分规则配置
+        const maxScores = {
+            "首刷": 30, "冷启场景": 105, "首页上拉刷新": 128, "首页下滑刷新": 139,
+            "视频内流": 105, "搜索": 99, "个人页": 30, "上传图片": 10, "上传视频": 20,
+        };
+
+        // 扣分计算函数 (保持原样)
+        function calculatePlatformPenalty(fps) {
+            let penalty = 0;
+            if (fps <= 50) penalty = 0;
+            else if (fps <= 90) penalty = 2;
+            else if (fps <= 112) penalty = 4;
+            else if (fps <= 200) penalty = 6;
+            else {
+                penalty = 8;
+                let extraSeconds = Math.floor((fps - 200) / fps);
+                penalty += extraSeconds * 2;
+                if (penalty > 30) penalty = 30;
+            }
+            return penalty;
+        }
+        // ... (其他 penalty 函数省略，逻辑复杂且占篇幅，假设保留原逻辑) ... 
+        // 为节省篇幅，这里简化其他函数的实现占位，实际合并时请将原代码中的 Calculate 函数全部复制过来
+        /* 
+冷启场景 计算规则
+≤50帧   不扣时长
+≤90帧     -2
+≤112帧    -4
+≤200帧   -6
+>200帧   -8
+>200帧后每多等待满一秒，扣掉2s消费时长，直至扣完。
+最多扣30s   
+*/
+        function calculatePlatformPenalty(fps) {
+            let penalty = 0;
+            if (fps <= 50) {
+                penalty = 0;
+            } else if (fps <= 90) {
+                penalty = 2;
+            } else if (fps <= 112) {
+                penalty = 4;
+            } else if (fps <= 200) {
+                penalty = 6;
+            } else {
+                penalty = 8;
+                let extraSeconds = Math.floor((fps - 200) / fps);
+                penalty += extraSeconds * 2;
+                if (penalty > 30) {
+                    penalty = 30;
+                }
+
+            }
+            return penalty;
+        }
+        /* 
+  首页上拉刷新 计算规则
+  ≤35帧  不扣时长
+  ≤55帧    -2
+  ≤112帧   -4
+  ≤150帧   -6
+  >150帧   -8
+  >150帧每多等待一秒，扣掉2s消费时长，直至扣完。
+  等待超过15s直接扣完
+  最多扣35s
+  */
+        function calculateHomePullPenalty(fps) {
+
+            let penalty = 0;
+            if (fps <= 35) {
+                penalty = 0;
+            } else if (fps <= 55) {
+                penalty = 2;
+            } else if (fps <= 112) {
+                penalty = 4;
+            } else if (fps <= 150) {
+                penalty = 6;
+            } else {
+                penalty = 8;
+                let extraSeconds = Math.floor((fps - 150) / fps);
+                penalty += extraSeconds * 2;
+                if (penalty > 30) {
+                    penalty = 30;
+                }
+
+            }
+            return penalty;
+        }
+        /* 
+          首页下拉刷新 计算规则
+            ≤35帧  不扣时长
+            ≤55帧    -2
+            ≤112帧   -4
+            ≤150帧   -6
+            >150帧   -8
+            >150帧每多等待一秒，扣掉2s消费时长，直至扣完。
+            等待超过15s直接扣完
+            最多扣35s
+          */
+        function calculateHomePushPenalty(fps) {
+            let penalty = 0;
+            if (fps <= 35) {
+                penalty = 0;
+            } else if (fps <= 55) {
+                penalty = 2;
+            } else if (fps <= 112) {
+                penalty = 4;
+            } else if (fps <= 150) {
+                penalty = 6;
+            } else {
+                penalty = 8;
+                let extraSeconds = Math.floor((fps - 150) / fps);
+                penalty += extraSeconds * 2;
+                if (penalty > 35) {
+                    penalty = 35;
+                }
+
+            }
+            return penalty;
+        }
+
+
+        /* 
+               视频内流 计算规则
+                 ≤30帧   不扣时长
+                 ≤60帧     -2
+                 ≤100帧    -4
+                 ≤150帧   -6
+                 >150帧   -8
+                 >150帧后每多等待满一秒，扣掉2s消费时长，直至扣完。
+                 最多扣35s
+               */
+        function calculateVideoStreamPenalty(fps) {
+            let penalty = 0;
+            if (fps <= 30) {
+                penalty = 0;
+            } else if (fps <= 60) {
+                penalty = 2;
+            } else if (fps <= 100) {
+                penalty = 4;
+            } else if (fps <= 150) {
+                penalty = 6;
+            } else {
+                penalty = 8;
+                let extraSeconds = Math.floor((fps - 150) / fps);
+                penalty += extraSeconds * 2;
+                if (penalty > 35) {
+                    penalty = 35;
+                }
+
+            }
+            return penalty;
+        }
+
+        /*
+            搜索 计算规则
+              全部加载完毕帧率，扣除时长
+              ≤31帧   不扣时长
+              ≤45帧    -2
+              ≤120帧    -4
+              ≤180帧    -6
+              >250帧    -8
+              >250帧每多等待一秒，扣掉2s消费时长，直至扣完
+              最多扣35s
+              等待超过15s 直接扣完
+            */
+        function calculateSearchPenalty(fps) {
+            let penalty = 0;
+            if (fps <= 31) {
+                penalty = 0;
+            } else if (fps <= 45) {
+                penalty = 2;
+            } else if (fps <= 120) {
+                penalty = 4;
+            } else if (fps <= 180) {
+                penalty = 6;
+            } else {
+                penalty = 8;
+                let extraSeconds = Math.floor((fps - 250) / fps);
+                penalty += extraSeconds * 2;
+                if (penalty > 35) {
+                    penalty = 35;
+                }
+
+            }
+            return penalty;
+        }
+        /*
+          个人页 计算规则
+            ≤15帧   不扣时长
+            ≤30帧    -2
+            ≤60帧    -4
+            ≤120帧   -6
+            >150帧   加载成功 -8
+            >150帧每多等待一秒，扣掉2s消费时长，直至扣完。
+            最多扣30s
+          */
+        function calculateProfilePenalty(fps) {
+            let penalty = 0;
+            if (fps <= 15) {
+                penalty = 0;
+            } else if (fps <= 30) {
+                penalty = 2;
+            } else if (fps <= 60) {
+                penalty = 4;
+            } else if (fps <= 120) {
+                penalty = 6;
+            } else {
+                penalty = 8;
+                let extraSeconds = Math.floor((fps - 150) / fps);
+                penalty += extraSeconds * 2;
+                if (penalty > 30) {
+                    penalty = 30;
+                }
+
+            }
+            return penalty;
+        }
+        /*
+          上传图片 计算规则
+            全部加载完毕帧率，扣除时长
+            ≤30s   不扣时长
+            ≤60s   -2
+            ≤100s  -4
+            ≤150s  -6
+            上传失败，重试成功    -8
+            上传失败，重试失败     -10
+            >100帧每多等待一秒，扣掉2s消费时长，直至扣完。
+            最多扣10s
+          */
+        function calculateImageUploadPenalty(fps) {
+            let penalty = 0;
+            fps = fps / 30; // 转换为秒
+            if (fps <= 30) {
+                penalty = 0;
+            } else if (fps <= 60) {
+                penalty = 2;
+            } else if (fps <= 100) {
+                penalty = 4;
+            } else if (fps <= 150) {
+                penalty = 6;
+            } else {
+                penalty = 8;
+                let extraSeconds = Math.floor((fps - 150) / fps);
+                penalty += extraSeconds * 2;
+                if (penalty > 10) {
+                    penalty = 10;
+                }
+
+            }
+            return penalty;
+        }
+        /*
+          上传视频 计算规则
+            全部加载完毕帧率，扣除时长
+            ≤≤50s   不扣时长
+            ≤100s   -4
+            ≤200s  -8
+            ≤300s  -12
+            上传失败，重试成功    -16
+            上传失败，重试失败     -20
+            >120帧每多等待一秒，扣掉2s消费时长，直至扣完。
+            最多扣20s
+          */
+        function calculateVideoUploadPenalty(fps) {
+            let penalty = 0;
+            fps = fps / 30; // 转换为秒
+            if (fps <= 50) {
+                penalty = 0;
+            } else if (fps <= 100) {
+                penalty = 4;
+            } else if (fps <= 200) {
+                penalty = 8;
+            } else if (fps <= 300) {
+                penalty = 12;
+            } else {
+                penalty = 16;
+                let extraSeconds = Math.floor((fps - 300) / fps);
+                penalty += extraSeconds * 2;
+                if (penalty > 20) {
+                    penalty = 20;
+                }
+
+            }
+            return penalty;
+        }
+
+
+        // 完整计算逻辑
+        // 计算逻辑
+        function calculatePenalty() {
+            negdata = {
+                "抖音": {},
+                "小红书": {},
+                "快手": {}
+            };
+            resdata = {
+                "抖音": {},
+                "小红书": {},
+                "快手": {}
+            };
+            //计算扣分数据
+            for (let platform in negdata) {
+
+                negdata[platform]["首刷"] = -calculatePlatformPenalty(datas[1][platform].fps);
+                negdata[platform]["冷启场景"] = -calculatePlatformPenalty(datas[2][platform].fps) - calculatePlatformPenalty(datas[3][platform].fps) - calculatePlatformPenalty(datas[4][platform].fps);
+                negdata[platform]["首页上拉刷新"] = -calculateHomePullPenalty(datas[5][platform].fps) - calculateHomePullPenalty(datas[6][platform].fps) - calculateHomePullPenalty(datas[7][platform].fps);
+                negdata[platform]["首页下滑刷新"] = -calculateHomePushPenalty(datas[8][platform].fps) - calculateHomePushPenalty(datas[9][platform].fps) - calculateHomePushPenalty(datas[10][platform].fps);
+                negdata[platform]["视频内流"] = -calculateVideoStreamPenalty(datas[11][platform].fps) - calculateVideoStreamPenalty(datas[12][platform].fps) - calculateVideoStreamPenalty(datas[13][platform].fps);
+                negdata[platform]["搜索"] = -calculateSearchPenalty(datas[14][platform].fps) - calculateSearchPenalty(datas[15][platform].fps);
+                negdata[platform]["个人页"] = -calculateProfilePenalty(datas[16][platform].fps);
+                negdata[platform]["上传图片"] = -calculateImageUploadPenalty(datas[17][platform].fps);
+                negdata[platform]["上传视频"] = -calculateVideoUploadPenalty(datas[18][platform].fps);
+
+            }
+            //计算得分数据
+            for (let platform in resdata) {
+                for (let scene in negdata[platform]) {
+                    resdata[platform][scene] = maxScores[scene] + negdata[platform][scene];
+                }
+            }
+            console.log('计算结果:', resdata);
+
+            console.log('扣分结果:', negdata);
+        }
+
+
+        // 导出按钮逻辑
+        document.getElementById('export-btn').addEventListener('click', () => {
+            setdatas();
+
+            // 检查数据完整性
+            for (const [key, value] of Object.entries(datas)) {
+                if (!value["抖音"] || !value["小红书"] || !value["快手"]) {
+                    alert(`测试场景 "${caseMap[key] || key}" 的数据不完整哈，亲，请确认一下哈。`);
+                    return;
+                }
+            }
+
+            // 确保已计算得分与扣分
+            calculatePenalty();
+            exportCSVAndJSON();
+        });
+
+        // 抽离导出逻辑，便于维护
+        function exportCSVAndJSON() {
+            const now = new Date();
+            const [year, month, day, hour, minute, second] = [
+                now.getFullYear(),
+                String(now.getMonth() + 1).padStart(2, '0'),
+                String(now.getDate()).padStart(2, '0'),
+                String(now.getHours()).padStart(2, '0'),
+                String(now.getMinutes()).padStart(2, '0'),
+                String(now.getSeconds()).padStart(2, '0')
+            ];
+            const fileName = `${year}${month}${day}${hour}${minute}${second}`;
+
+            // ✅ UTF-8 BOM
+            let csvContent = "\uFEFF";
+            csvContent += `测试结果表\n`;
+
+            // ============ 1. 合并得分表 + 扣分表（放在最前面）===========
+            csvContent += `测试场景,抖音得分,小红书得分,快手得分,max,抖音扣分,小红书扣分,快手扣分\n`;
+
+            // 找出所有 caseName（以 resdata["抖音"] 的 key 为准，假设各平台 case 一致）
+            const caseNames = Object.keys(resdata["抖音"] || {});
+
+            for (const caseName of caseNames) {
+                const dyScore = (resdata["抖音"] && resdata["抖音"][caseName]) || 0;
+                const xhsScore = (resdata["小红书"] && resdata["小红书"][caseName]) || 0;
+                const ksScore = (resdata["快手"] && resdata["快手"][caseName]) || 0;
+                const maxVal = maxScores[caseName] || '';
+
+                const dyNeg = (negdata["抖音"] && negdata["抖音"][caseName]) || 0;
+                const xhsNeg = (negdata["小红书"] && negdata["小红书"][caseName]) || 0;
+                const ksNeg = (negdata["快手"] && negdata["快手"][caseName]) || 0;
+
+                csvContent += `${caseName},${dyScore},${xhsScore},${ksScore},${maxVal},${dyNeg},${xhsNeg},${ksNeg}\n`;
+            }
+            // ============ 3. 总计行 ============
+            // 统计各平台总得分
+            let douyinTotal = 0, xiaohongshuTotal = 0, kuaishouTotal = 0, maxTotal = 0;
+            for (const caseName of caseNames) {
+                douyinTotal += resdata["抖音"][caseName] || 0;
+                xiaohongshuTotal += resdata["小红书"][caseName] || 0;
+                kuaishouTotal += resdata["快手"][caseName] || 0;
+                maxTotal += maxScores[caseName] || 0;
+            }
+
+            csvContent += `总计,${douyinTotal},${xiaohongshuTotal},${kuaishouTotal},${maxTotal},,,\n`;
+            // ============ 2. 帧数表 ============
+            csvContent += `\n帧数表\n`;
+            csvContent += "测试场景,抖音帧数,小红书帧数,快手帧数\n";
+            for (const [key, value] of Object.entries(datas)) {
+                const caseName = caseMap[key] || key;
+                const douyinFrames = value["抖音"] ? value["抖音"].fps : '';
+                const xiaohongshuFrames = value["小红书"] ? value["小红书"].fps : '';
+                const kuaishouFrames = value["快手"] ? value["快手"].fps : '';
+                csvContent += `${caseName},${douyinFrames},${xiaohongshuFrames},${kuaishouFrames}\n`;
+            }
+
+
+
+            // ============ 导出 CSV ============
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `${fileName}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            // ============ 导出 JSON ============
+            const jsonContent = JSON.stringify(datas, null, 2);
+            const jsonBlob = new Blob([jsonContent], { type: 'application/json;charset=utf-8' });
+            const jsonUrl = URL.createObjectURL(jsonBlob);
+            const jsonLink = document.createElement("a");
+            jsonLink.href = jsonUrl;
+            jsonLink.download = `${fileName}.json`;
+            document.body.appendChild(jsonLink);
+            jsonLink.click();
+            document.body.removeChild(jsonLink);
+            URL.revokeObjectURL(jsonUrl);
+        }
+
+
+        // 辅助函数：帧转时间字符串
+        function formatTime(timeStr) {
+            if (!timeStr) return "00:00:00.000";
+            const mm = timeStr.slice(0, 2);
+            const ss = timeStr.slice(2, 4);
+            let frames = timeStr.slice(4, 6);
+            const hh = '00';
+            frames = frames / 30 * 1000;
+            frames = String(Math.round(frames)).padStart(3, '0').slice(0, 3);
+            return `${hh}:${mm}:${ss}.${frames}`;
+        }
+
+        // 剪辑相关逻辑 (API 调用)
+        let clipSettings = {};
+        function clipSingleVideo(caseName) {
+            const sendData = datas[caseName];
+            if (!sendData) return;
+
+            const dy = sendData["抖音"];
+            const xhs = sendData["小红书"];
+            const ks = sendData["快手"];
+            const outputName = outputPath + (caseMap[caseName] || caseName) + ".mp4";
+
+            const payload = {
+                input1: douyinPath, start1: formatTime(dy.start_time), end1: formatTime(dy.end_time),
+                input2: xiaohongshuPath, start2: formatTime(xhs.start_time), end2: formatTime(xhs.end_time),
+                input3: kuaishouPath, start3: formatTime(ks.start_time), end3: formatTime(ks.end_time),
+                output: outputName, max_duration: null
+            };
+            const myHeaders = new Headers();
+            myHeaders.append("Content-Type", "application/json");
+
+            // 发送 fetch 请求 (略，保持原样)
+            // fetch("http://127.0.0.1:8000/merge", ... )
+
+            console.log('准备剪辑:', payload);
+            fetch("http://127.0.0.1:8000/merge", {
+                method: "POST",
+                headers: myHeaders,
+                body: JSON.stringify(payload)
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        showTip(0,`❌ 编号 ${caseName} 视频剪辑失败！\n状态码: ${response.status}`);
+                        throw new Error(`HTTP 错误！状态: ${response.status}`);
+                    }
+                    return response.text();
+                })
+                .then(resultText => {
+                    showTip(1,`✅ 编号 ${caseName} 视频剪辑成功！`);
+                    console.log(`✅ 编号 ${caseName} 视频剪辑成功！\n返回信息: ${resultText}`);
+                })
+                .catch(error => {
+                    showTip(0,`❌ 编号 ${caseName} 视频剪辑失败！\n错误信息: ${error.message}`);
+                    alert(`❌ 编号 ${caseName} 视频剪辑失败！\n错误信息: ${error.message}`);
+                });
+        }
+
+        document.getElementById('clip-single-btn').addEventListener('click', () => {
+            const caseName = document.getElementById('case-select').value;
+            clipSingleVideo(caseName);
+        });
+
+
+    </script>
+</body>
+
+</html>

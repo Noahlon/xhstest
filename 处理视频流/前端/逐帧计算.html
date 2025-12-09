@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>多视角视频逐帧对比工具</title>
+  <style>
+    :root {
+      --bg-color: #121212;
+      --card-bg: #1e1e1e;
+      --text-main: #e0e0e0;
+      --text-muted: #a0a0a0;
+      --accent-color: #3b82f6;
+      --accent-hover: #2563eb;
+      --border-color: #333;
+      --success-color: #10b981;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 顶部布局：视频区 */
+    .video-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+      margin-bottom: 16px;
+    }
+
+    .video-card {
+      background: var(--card-bg);
+      border-radius: 8px;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .video-header {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* 替换按钮样式 */
+    .btn-replace {
+      font-size: 12px;
+      background: transparent;
+      border: 1px solid #444;
+      color: #888;
+      border-radius: 4px;
+      padding: 2px 8px;
+      cursor: pointer;
+    }
+    .btn-replace:hover {
+      border-color: var(--accent-color);
+      color: var(--accent-color);
+    }
+
+    .video-wrapper {
+      position: relative;
+      width: 100%;
+      flex: 1;
+      background: #000;
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      min-height: 200px;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    /* 聚焦样式 */
+    video:focus { outline: none; }
+    .video-wrapper:has(video:focus) {
+      box-shadow: 0 0 0 2px var(--accent-color);
+    }
+
+    /* 上传提示层 */
+    .upload-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    
+    .video-wrapper.has-video .upload-overlay {
+      opacity: 0;
+    }
+
+    .icon-upload {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    /* 底部控制区 */
+    .controls-area {
+      background: var(--card-bg);
+      border-top: 1px solid var(--border-color);
+      padding: 16px 20px;
+      border-radius: 12px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+    }
+
+    .timeline-row {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 12px;
+    }
+
+    #seek {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 6px;
+      background: #444;
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+    #seek::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      background: var(--accent-color);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    #seek::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+    .frame-display {
+      font-family: 'Courier New', Courier, monospace;
+      background: #000;
+      color: var(--accent-color);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      min-width: 110px;
+      text-align: center;
+      border: 1px solid #333;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .left-tools, .right-tools {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      background: #333;
+      color: var(--text-main);
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .btn:hover { background: #444; }
+    .btn-primary { background: var(--accent-color); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+
+    .input-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    input[type="number"] {
+      background: #333;
+      border: 1px solid #444;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      width: 60px;
+      text-align: center;
+    }
+
+    .shortcuts {
+      font-size: 12px;
+      color: #666;
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+    .key {
+      background: #2a2a2a;
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid #333;
+      font-family: monospace;
+      color: #aaa;
+    }
+
+    input[type="file"] { display: none; }
+  </style>
+</head>
+
+<body>
+
+  <!-- 视频网格区 -->
+  <div class="video-container">
+    
+    <!-- 抖音 -->
+    <div class="video-card">
+      <div class="video-header">
+        <span>抖音</span>
+        <button class="btn-replace" onclick="triggerUpload(0)">替换视频</button>
+      </div>
+      <div class="video-wrapper" onclick="handleWrapperClick(0)">
+        <video class="v" muted tabindex="0"></video>
+        <div class="upload-overlay">
+          <span class="icon-upload">⊕</span>
+          <span>点击上传视频</span>
+        </div>
+      </div>
+      <input class="f" type="file" accept="video/*" />
+    </div>
+
+    <!-- 小红书 -->
+    <div class="video-card">
+      <div class="video-header">
+        <span>小红书</span>
+        <button class="btn-replace" onclick="triggerUpload(1)">替换视频</button>
+      </div>
+      <div class="video-wrapper" onclick="handleWrapperClick(1)">
+        <video class="v" muted tabindex="0"></video>
+        <div class="upload-overlay">
+          <span class="icon-upload">⊕</span>
+          <span>点击上传视频</span>
+        </div>
+      </div>
+      <input class="f" type="file" accept="video/*" />
+    </div>
+
+    <!-- 快手 -->
+    <div class="video-card">
+      <div class="video-header">
+        <span>快手</span>
+        <button class="btn-replace" onclick="triggerUpload(2)">替换视频</button>
+      </div>
+      <div class="video-wrapper" onclick="handleWrapperClick(2)">
+        <video class="v" muted tabindex="0"></video>
+        <div class="upload-overlay">
+          <span class="icon-upload">⊕</span>
+          <span>点击上传视频</span>
+        </div>
+      </div>
+      <input class="f" type="file" accept="video/*" />
+    </div>
+  </div>
+
+  <!-- 底部控制面板 -->
+  <div class="controls-area">
+    <div class="timeline-row">
+      <input id="seek" type="range" min="0" max="100" step="0.01" value="0" />
+      <div id="frameCode" class="frame-display">00:00:00</div>
+    </div>
+
+    <div class="toolbar">
+      <div class="left-tools">
+        <div class="input-group">
+          <label>帧率</label>
+          <input id="fpsInput" type="number" value="30" min="1" />
+        </div>
+        <button id="copyFrameBtn" class="btn btn-primary">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+          复制帧号
+        </button>
+      </div>
+
+      <div class="right-tools shortcuts">
+        <span><span class="key">←/→</span> 逐帧</span>
+        <span><span class="key">Shift</span>+<span class="key">←/→</span> 10帧</span>
+        <span><span class="key">Cmd/Ctrl</span>+<span class="key">C</span> 复制帧号</span>
+        <span>选视频+<span class="key">C</span> 复制画面</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ---------- 1. 视频加载与交互 ---------- */
+    const videos = document.querySelectorAll('.v');
+    const inputs = document.querySelectorAll('.f');
+    const wrappers = document.querySelectorAll('.video-wrapper');
+
+    // 触发文件选择
+    function triggerUpload(index) {
+      inputs[index].click();
+    }
+
+    // Wrapper 点击逻辑
+    function handleWrapperClick(index) {
+      const v = videos[index];
+      if (v.readyState === 0) {
+        triggerUpload(index);
+      }
+    }
+
+    inputs.forEach((input, i) => {
+      input.addEventListener('change', e => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // --- 恢复的 LocalStorage 逻辑 ---
+        const keys = ['douyin', 'xiaohongshu', 'kuaishou'];
+        localStorage.setItem(keys[i], file.name);
+        console.log('已保存到本地存储:', keys[i], file.name);
+        // -------------------------------
+
+        const url = URL.createObjectURL(file);
+        videos[i].src = url;
+        videos[i].load();
+        videos[i].pause();
+        
+        // 样式更新
+        wrappers[i].classList.add('has-video');
+      });
+    });
+
+    // 视频元素点击逻辑
+    videos.forEach(v => {
+      v.addEventListener('click', (e) => {
+        if (v.readyState > 0) {
+          e.stopPropagation();
+          v.focus();
+        }
+      });
+    });
+
+    /* ---------- 2. 统一帧跳转 ---------- */
+    const fpsInput = document.getElementById('fpsInput');
+
+    function jump(frames) {
+      const mainVideo = Array.from(videos).find(v => v.readyState > 0);
+      if (!mainVideo) return;
+
+      const fps = +fpsInput.value || 30;
+      const dt = frames / fps;
+      const t0 = mainVideo.currentTime + dt;
+      const newTime = Math.min(Math.max(0, t0), mainVideo.duration);
+      
+      videos.forEach(v => { if(v.readyState > 0) v.currentTime = newTime });
+    }
+
+    document.addEventListener('keydown', e => {
+      if(e.target.tagName === 'INPUT') return;
+      const mainVideo = Array.from(videos).find(v => v.readyState > 0);
+      if (!mainVideo) return;
+
+      if (e.key === 'ArrowRight') { e.preventDefault(); jump(e.shiftKey ? 10 : 1); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); jump(e.shiftKey ? -10 : -1); }
+    });
+
+    /* ---------- 3. 进度条与时间码 ---------- */
+    const seekBar = document.getElementById('seek');
+    const frameCode = document.getElementById('frameCode');
+
+    videos.forEach(v => {
+      v.addEventListener('loadedmetadata', () => {
+        if(seekBar.max == 100 || v.duration > seekBar.max) {
+           seekBar.max = v.duration;
+        }
+      });
+      v.addEventListener('timeupdate', updateUI);
+    });
+
+    seekBar.addEventListener('input', () => {
+      const t = +seekBar.value;
+      videos.forEach(v => { if(v.readyState > 0) v.currentTime = t; });
+      updateFrameText(t);
+    });
+
+    function updateFrameText(t) {
+      const fps = +fpsInput.value || 30;
+      const mm = String(Math.floor(t / 60)).padStart(2, '0');
+      const ss = String(Math.floor(t % 60)).padStart(2, '0');
+      const currentFrame = Math.floor((t % 1) * fps); 
+      const ff = String(currentFrame).padStart(2, '0').slice(0, 2);
+      frameCode.textContent = `${mm}:${ss}:${ff}`;
+    }
+
+    function updateUI() {
+      const t = this.currentTime;
+      if (!isNaN(t)) {
+        if(document.activeElement !== seekBar) seekBar.value = t;
+        updateFrameText(t);
+      }
+    }
+
+    /* ---------- 4. 复制与快捷键 ---------- */
+    const copyFrameBtn = document.getElementById('copyFrameBtn');
+
+    async function copyFrameCode() {
+      const text = frameCode.textContent.replace(/:/g, ''); // 复制格式为 000000
+      try {
+        await navigator.clipboard.writeText(text);
+        const originalText = copyFrameBtn.innerHTML;
+        copyFrameBtn.innerHTML = `<span style="color:#fff">✓ 已复制</span>`;
+        copyFrameBtn.style.background = 'var(--success-color)';
+        setTimeout(() => {
+           copyFrameBtn.innerHTML = originalText;
+           copyFrameBtn.style.background = '';
+        }, 1000);
+      } catch (err) { console.error(err); }
+    }
+    copyFrameBtn.addEventListener('click', copyFrameCode);
+
+    document.addEventListener('keydown', async e => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') {
+        const active = document.activeElement;
+        
+        // 1. 复制画面
+        if (active && active.tagName === 'VIDEO' && active.readyState > 0 && !e.altKey) {
+          e.preventDefault();
+          try {
+            const w = active.videoWidth;
+            const h = active.videoHeight;
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(active, 0, 0, w, h);
+            canvas.toBlob(async blob => {
+              await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+              active.parentElement.style.boxShadow = '0 0 0 4px var(--success-color)';
+              setTimeout(() => active.parentElement.style.boxShadow = '', 300);
+            });
+          } catch(err) {}
+          return;
+        }
+        
+        // 2. 复制帧号
+        if(active.tagName !== 'INPUT') {
+            e.preventDefault();
+            await copyFrameCode();
+        }
+      }
+    });
+  </script>
+</body>
+</html>

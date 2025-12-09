@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>自动填充输入框</title>
+</head>
+<body>
+  <input type="text" id="myInput" placeholder="点击我试试">
+
+  <script>
+    const input = document.getElementById('myInput');
+
+    input.addEventListener('focus', function () {
+      this.value = '1111';
+    });
+  </script>
+</body>
+</html>

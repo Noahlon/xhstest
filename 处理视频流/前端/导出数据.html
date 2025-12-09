@@ -2,1075 +2,1103 @@
 <html lang="zh-CN">
 
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>多平台时间码帧数计算（简洁版）</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: Segoe UI, Tahoma, Arial, sans-serif
-    }
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>多平台时间码帧数计算（简洁版）</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Segoe UI, Tahoma, Arial, sans-serif
+        }
 
-    body {
-      background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 10px
-    }
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px
+        }
 
-    .container {
-      background: rgba(255, 255, 255, .95);
-      border-radius: 10px;
-      box-shadow: 0 5px 15px rgba(0, 0, 0, .15);
-      width: 100%;
-      max-width: 780px;
-      padding: 14px
-    }
+        .container {
+            background: rgba(255, 255, 255, .95);
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, .15);
+            width: 100%;
+            max-width: 780px;
+            padding: 14px
+        }
 
-    h1 {
-      font-size: 20px;
-      color: #1a2a6c;
-      text-align: center;
-      margin-bottom: 8px
-    }
+        h1 {
+            font-size: 20px;
+            color: #1a2a6c;
+            text-align: center;
+            margin-bottom: 8px
+        }
 
-    .description {
-      font-size: 13px;
-      color: #555;
-      text-align: center;
-      margin-bottom: 10px
-    }
+        .description {
+            font-size: 13px;
+            color: #555;
+            text-align: center;
+            margin-bottom: 10px
+        }
 
-    .controls {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
-      flex-wrap: wrap
-    }
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            flex-wrap: wrap
+        }
 
-    label {
-      font-size: 13px;
-      color: #333;
-      font-weight: 600;
-      margin-right: 4px
-    }
+        label {
+            font-size: 13px;
+            color: #333;
+            font-weight: 600;
+            margin-right: 4px
+        }
 
-    select,
-    input[type="number"] {
-      padding: 5px 8px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 13px
-    }
+        select,
+        input[type="number"] {
+            padding: 5px 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 13px
+        }
 
-    .fps-select {
-      width: 120px
-    }
+        .fps-select {
+            width: 120px
+        }
 
-    .case-select {
-      width: 200px
-    }
+        .case-select {
+            width: 200px
+        }
 
-    .custom-fps {
-      display: none;
-      width: 110px
-    }
+        .custom-fps {
+            display: none;
+            width: 110px
+        }
 
-    .time-group {
-      border: 1px dashed #1a2a6c;
-      border-radius: 8px;
-      padding: 8px 10px;
-      margin-bottom: 10px;
-      background: #f8f9fa
-    }
+        .time-group {
+            border: 1px dashed #1a2a6c;
+            border-radius: 8px;
+            padding: 8px 10px;
+            margin-bottom: 10px;
+            background: #f8f9fa
+        }
 
-    .time-group h3 {
-      font-size: 15px;
-      color: #1a2a6c;
-      margin-bottom: 6px;
-      text-align: left
-    }
+        .time-group h3 {
+            font-size: 15px;
+            color: #1a2a6c;
+            margin-bottom: 6px;
+            text-align: left
+        }
 
-    .row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 6px
-    }
+        .row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 6px
+        }
 
-    .row label.inline {
-      font-size: 12px;
-      color: #333;
-      min-width: 40px
-    }
+        .row label.inline {
+            font-size: 12px;
+            color: #333;
+            min-width: 40px
+        }
 
-    input.timecode {
-      padding: 5px 8px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 13px;
-      width: 80px;
-      text-align: center
-    }
+        input.timecode {
+            padding: 5px 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 13px;
+            width: 80px;
+            text-align: center
+        }
 
-    input.inputfps {
-      padding: 5px 8px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 13px;
-      width: 100px;
-      text-align: center
-    }
+        input.inputfps {
+            padding: 5px 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 13px;
+            width: 100px;
+            text-align: center
+        }
 
-    .result-line {
-      font-size: 16px;
-      font-weight: 700;
-      color: #b21f1f;
-      text-align: center;
-      margin-top: 4px;
-      display: none
-    }
+        input.inputpath {
+            padding: 5px 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 13px;
+            width: 250px;
+            text-align: center
+        }
+        input.case-input {
+            padding: 5px 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 13px;
+            width: 250px;
+            text-align: center
+        }
+        .result-line {
+            font-size: 16px;
+            font-weight: 700;
+            color: #b21f1f;
+            text-align: center;
+            margin-top: 4px;
+            display: none
+        }
 
-    .calc {
-      font-family: monospace;
-      font-size: 11px;
-      color: #555;
-      background: #e9ecef;
-      border-radius: 6px;
-      padding: 5px;
-      margin-top: 6px
-    }
+        .calc {
+            font-family: monospace;
+            font-size: 11px;
+            color: #555;
+            background: #e9ecef;
+            border-radius: 6px;
+            padding: 5px;
+            margin-top: 6px
+        }
 
-    .copy-btn {
-      padding: 5px 8px;
-      border-radius: 6px;
-      border: 1px solid #bbb;
-      background: #fff;
-      font-size: 13px;
-      cursor: pointer;
-      min-width: 64px;
-    }
+        .copy-btn {
+            padding: 5px 8px;
+            border-radius: 6px;
+            border: 1px solid #bbb;
+            background: #fff;
+            font-size: 13px;
+            cursor: pointer;
+            min-width: 64px;
+        }
 
-    .copy-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed
-    }
+        .copy-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed
+        }
 
-    @media(max-width:760px) {
-      .container {
-        padding: 10px
-      }
+        @media(max-width:760px) {
+            .container {
+                padding: 10px
+            }
 
-      input.timecode {
-        width: 70px
-      }
+            input.timecode {
+                width: 70px
+            }
 
-      .fps-select {
-        width: 100px
-      }
+            .fps-select {
+                width: 100px
+            }
 
-      .custom-fps {
-        width: 90px
-      }
-    }
+            .custom-fps {
+                width: 90px
+            }
+        }
 
-    /* 进度条样式 */
-    .progress-section {
-      margin: 20px 0;
-      padding: 15px;
-      background: #f8f9fa;
-      border-radius: 10px;
-      border: 1px solid #e0e0e0;
-    }
+        /* 进度条样式 */
+        .progress-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+        }
 
-    .progress-container {
-      position: relative;
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 20px;
-    }
+        .progress-container {
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
 
-    .progress-bar {
-      position: absolute;
-      height: 6px;
-      background-color: #e0e0e0;
-      top: 50%;
-      left: 0;
-      transform: translateY(-50%);
-      width: 100%;
-      z-index: 1;
-      border-radius: 3px;
-    }
+        .progress-bar {
+            position: absolute;
+            height: 6px;
+            background-color: #e0e0e0;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+            width: 100%;
+            z-index: 1;
+            border-radius: 3px;
+        }
 
-    .progress {
-      position: absolute;
-      height: 6px;
-      background-color: #4CAF50;
-      top: 50%;
-      left: 0;
-      transform: translateY(-50%);
-      width: 0%;
-      z-index: 2;
-      border-radius: 3px;
-      transition: width 0.5s ease;
-    }
+        .progress {
+            position: absolute;
+            height: 6px;
+            background-color: #4CAF50;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+            width: 0%;
+            z-index: 2;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
 
-    .step {
-      width: 30px;
-      height: 30px;
-      background-color: #fff;
-      border: 3px solid #e0e0e0;
-      border-radius: 50%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-weight: bold;
-      color: #999;
-      z-index: 3;
-      transition: all 0.4s ease;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-      font-size: 12px;
-    }
+        .step {
+            width: 30px;
+            height: 30px;
+            background-color: #fff;
+            border: 3px solid #e0e0e0;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: #999;
+            z-index: 3;
+            transition: all 0.4s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            font-size: 12px;
+        }
 
-    .step.active {
-      border-color: #4CAF50;
-      background-color: #4CAF50;
-      color: white;
-      transform: scale(1.1);
-      box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
-    }
+        .step.active {
+            border-color: #4CAF50;
+            background-color: #4CAF50;
+            color: white;
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+        }
 
-    .step.completed {
-      border-color: #4CAF50;
-      background-color: #4CAF50;
-      color: white;
-    }
+        .step.completed {
+            border-color: #4CAF50;
+            background-color: #4CAF50;
+            color: white;
+        }
 
-    .step.completed::after {
-      content: "✓";
-      font-size: 14px;
-    }
+        .step.completed::after {
+            content: "✓";
+            font-size: 14px;
+        }
 
-    .progress-controls {
-      display: flex;
-      justify-content: center;
-      gap: 15px;
-      margin-top: 15px;
-    }
+        .progress-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
 
-    .progress-btn {
-      padding: 8px 20px;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
+        .progress-btn {
+            padding: 8px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
 
-    .progress-btn:hover {
-      background-color: #3d8b40;
-      transform: translateY(-2px);
-    }
+        .progress-btn:hover {
+            background-color: #3d8b40;
+            transform: translateY(-2px);
+        }
 
-    .progress-btn:active {
-      transform: translateY(0);
-    }
+        .progress-btn:active {
+            transform: translateY(0);
+        }
 
-    .progress-btn:disabled {
-      background-color: #cccccc;
-      cursor: not-allowed;
-      transform: none;
-    }
+        .progress-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+        }
 
-    .progress-status {
-      text-align: center;
-      margin-top: 10px;
-      font-size: 14px;
-      color: #555;
-      font-weight: 500;
-    }
-  </style>
+        .progress-status {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 14px;
+            color: #555;
+            font-weight: 500;
+        }
+    </style>
 </head>
 
 <body>
-  <div class="container">
-    <!-- <h1>多平台时间码帧数计算</h1> -->
-    <!-- <p class="description">抖音 / 小红书 / 快手 — 输入开始与结束时间，计算帧数差</p> -->
+    <div class="container">
+        <!-- <h1>多平台时间码帧数计算</h1> -->
+        <!-- <p class="description">抖音 / 小红书 / 快手 — 输入开始与结束时间，计算帧数差</p> -->
 
-    <!-- 进度条部分 -->
-    <div class="progress-section">
-      <!-- <h3 style="text-align: center; margin-bottom: 15px; color: #1a2a6c;">测试进度</h3> -->
-      <div class="progress-container">
-        <div class="progress-bar"></div>
-        <div class="progress" id="progress"></div>
+        <!-- 进度条部分 -->
+        <div class="progress-section">
+            <!-- <h3 style="text-align: center; margin-bottom: 15px; color: #1a2a6c;">测试进度</h3> -->
+            <div class="progress-container">
+                <div class="progress-bar"></div>
+                <div class="progress" id="progress"></div>
 
-        <!-- 生成16个步骤 -->
+                <!-- 生成16个步骤 -->
 
-      </div>
-      <div class="progress-status" id="progressStatus">当前进度: 1/16 - 冷启场景</div>
+            </div>
+            <div class="progress-status" id="progressStatus">当前进度: 1/16 - 冷启场景</div>
 
-      <div class="progress-controls">
-        <button class="progress-btn" id="prevBtn" disabled>上一步</button>
-        <button class="progress-btn" id="nextBtn">下一步</button>
-        <button class="progress-btn" id="resetBtn">重置</button>
-      </div>
-    </div>
+            <div class="progress-controls">
+                <button class="progress-btn" id="prevBtn" disabled>上一步</button>
+                <button class="progress-btn" id="nextBtn">下一步</button>
+                <button class="progress-btn" id="resetBtn">重置</button>
+            </div>
+        </div>
 
-    <!-- 顶部帧率选择 -->
-    <div class="controls">
-      <label for="fps">帧率 (FPS)</label>
-      <select id="fps" class="fps-select">
-        <option value="23.976">23.976</option>
-        <option value="24">24</option>
-        <option value="25">25</option>
-        <option value="29.97">29.97</option>
-        <option value="30" selected>30</option>
-        <option value="50">50</option>
-        <option value="59.94">59.94</option>
-        <option value="60">60</option>
-        <option value="120">120</option>
-        <option value="custom">自定义</option>
-      </select>
+        <!-- 顶部帧率选择 -->
+        <div class="controls">
+            <label for="fps">帧率 (FPS)</label>
+            <select id="fps" class="fps-select">
+                <option value="23.976">23.976</option>
+                <option value="24">24</option>
+                <option value="25">25</option>
+                <option value="29.97">29.97</option>
+                <option value="30" selected>30</option>
+                <option value="50">50</option>
+                <option value="59.94">59.94</option>
+                <option value="60">60</option>
+                <option value="120">120</option>
+                <option value="custom">自定义</option>
+            </select>
 
-      <input type="number" id="custom-fps" class="custom-fps" placeholder="输入帧率" min="1" step="0.001" />
-      <!-- 顶部case选择 -->
-      <select id="case-select" class="case-select">
+            <input type="number" id="custom-fps" class="custom-fps" placeholder="输入帧率" min="1" step="0.001" />
+            <!-- 顶部case选择 -->
+            <select id="case-select" class="case-select">
 
-      </select>
-    </div>
-    <!-- 获取本地视频路径结果展示区域 -->
+            </select>
+                <input class="case-input" id="output-path" placeholder="请输入测试场景 eg:上海12号线早高峰" />
 
-    <div id="groups"></div>
+        </div>
+        <!-- 获取本地视频路径结果展示区域 -->
 
-    <!-- 增加保存到本地按钮 -->
-    <div style="text-align:center;margin-top:10px;">
-      <button id="save-btn" class="upload-btn" style="width:auto;padding:10px 20px;">保存结果到本地</button>
+        <div id="groups"></div>
 
-      <!-- 导出 -->
-      <button id="export-btn" class="upload-btn"
-        style="width:auto;padding:10px 20px;margin-left:10px;">导出为Excel</button>
-      <button id="clip-btn" class="clip-btn" style="width:auto;padding:10px 20px;margin-left:10px;">剪辑所有视频</button>
-      <!-- 剪辑单个视频 -->
-      <button id="clip-single-btn" class="clip-single-btn"
-        style="width:auto;padding:10px 20px;margin-left:10px;">剪辑单个视频</button>
-    </div>
+        <!-- 增加保存到本地按钮 -->
+        <div style="text-align:center;margin-top:10px;">
+            <button id="save-btn" class="upload-btn" style="width:auto;padding:10px 20px;">保存结果到本地</button>
 
-
-
-    <script>
-      // 剪辑路径前缀
-      const clipPathPrefix = '/Users/liuqianlong/Desktop/video/第三轮测试/';
-      // 剪辑路径
-      const douyinPath = clipPathPrefix + '抖音/2025_11_18_18_04_10_IMG_0262.MP4';
-      const xiaohongshuPath = clipPathPrefix + '小红书/2025_11_18_18_04_12_IMG_0311.MP4';
-      const kuaishouPath = clipPathPrefix + '快手/2025_11_18_18_04_10_IMG_0263.MP4';
-      // 导出路径
-      const outputPath = './output/上海12号线早高峰/';
-      // key 和 case 映射
-      const caseMap = {
-        "1": "首刷",
-        "2": "冷启场景1",
-        "3": "冷启场景2",
-        "4": "冷启场景3",
-        "5": "首页上拉刷新1",
-        "6": "首页上拉刷新2",
-        "7": "首页上拉刷新3",
-        "8": "首页下滑刷新1",
-        "9": "首页下滑刷新2",
-        "10": "首页下滑刷新3",
-        "11": "视频内流1",
-        "12": "视频内流2",
-        "13": "视频内流3",
-        "14": "搜索1",
-        "15": "搜索2",
-        "16": "个人页",
-        "17": "上传图片",
-        "18": "上传视频"
-      };
-      const countCase = Object.keys(caseMap).length;
-      let datas = {}; // 存储所有case的数据
-      //初始化数据结构
-      for (const key in caseMap) {
-        datas[key] = {};
-      }
-      // 扣分数据
-      let negdata = {};
-
-      //得分数据
-      let resdata = {};
-
-      // 初始化case选择框
-      const caseSelect = document.getElementById('case-select');
-      for (const key in caseMap) {
-        const option = document.createElement('option');
-        option.value = key;
-        option.textContent = caseMap[key];
-        caseSelect.appendChild(option);
-      }
-      const progressContainer = document.querySelector('.progress-container');
-      // 生成步骤
-      for (let i = 1; i <= countCase; i++) {
-        const step = document.createElement('div');
-        step.classList.add('step');
-        step.setAttribute('data-step', i);
-        step.textContent = i;
-        progressContainer.appendChild(step);
-      }
+            <!-- 导出 -->
+            <button id="export-btn" class="upload-btn"
+                style="width:auto;padding:10px 20px;margin-left:10px;">导出为Excel</button>
+            <button id="clip-btn" class="clip-btn"
+                style="width:auto;padding:10px 20px;margin-left:10px;">剪辑所有视频</button>
+            <!-- 剪辑单个视频 -->
+            <button id="clip-single-btn" class="clip-single-btn"
+                style="width:auto;padding:10px 20px;margin-left:10px;">剪辑单个视频</button>
+        </div>
 
 
 
-      //存储导出数据
-      function setdatas() {
-        const platforms = document.getElementById('groups').innerText;
-
-        let douyinfps = '-', xiaohongshufps = '-', kuaishoufps = '-';
-        douyinfps = document.getElementById('framecount1').value ? document.getElementById('framecount1').value : document.getElementById('result1').textContent;
-        xiaohongshufps = document.getElementById('framecount2').value ? document.getElementById('framecount2').value : document.getElementById('result2').textContent;
-        kuaishoufps = document.getElementById('framecount3').value ? document.getElementById('framecount3').value : document.getElementById('result3').textContent;
-
-
-        console.log('当前平台帧数:', douyinfps, xiaohongshufps, kuaishoufps);
-        // fps不为数字则不保存
-        if (isNaN(douyinfps) || isNaN(xiaohongshufps) || isNaN(kuaishoufps)) {
-          console.log('数据不完整，无法保存');
-          return false;
-        }
-
-
-        // case value 作为key
-        const key = document.getElementById('case-select').value;
-        datas[key] = {
-          "抖音": {
-            fps: douyinfps,
-            start_time: document.getElementById('start1').value,
-            end_time: document.getElementById('end1').value,
-            caseName: key,
-          },
-          "小红书": {
-            fps: xiaohongshufps,
-            start_time: document.getElementById('start2').value,
-            end_time: document.getElementById('end2').value,
-            caseName: key,
-          },
-          "快手": {
-            fps: kuaishoufps,
-            start_time: document.getElementById('start3').value,
-            end_time: document.getElementById('end3').value,
-            caseName: key,
-          },
-        }
-        console.log('保存的数据:', datas);
-
-
-        // 清空输入框
-        document.getElementById('start1').value = '';
-        document.getElementById('end1').value = '';
-        document.getElementById('start2').value = '';
-        document.getElementById('end2').value = '';
-        document.getElementById('start3').value = '';
-        document.getElementById('end3').value = '';
-        document.getElementById('result1').textContent = '—';
-        document.getElementById('result2').textContent = '—';
-        document.getElementById('result3').textContent = '—';
-        document.getElementById('calc1').textContent = '等待输入...';
-        document.getElementById('calc2').textContent = '等待输入...';
-        document.getElementById('calc3').textContent = '等待输入...';
-        return true;
-      }
-
-      // 进度条相关变量
-      let currentStep = 1;
+        <script>
+            // 剪辑路径前缀
+            const clipPathPrefix = '/Users/liuqianlong/Documents/code/xhscase/web_file_transfer/uploads/20251128/';
+            // 剪辑路径
+            let douyinPath = clipPathPrefix + '抖音/2025_11_18_18_04_10_IMG_0262.MP4';
+            let xiaohongshuPath = clipPathPrefix + '小红书/2025_11_18_18_04_12_IMG_0311.MP4';
+            let kuaishouPath = clipPathPrefix + '快手/2025_11_18_18_04_10_IMG_0263.MP4';
+            // 触发输入事件，更新路径
+            const douyinPathInput = document.getElementById('path1')+localStorage.getItem('douyin');
+            const xiaohongshuPathInput = document.getElementById('path2')+localStorage.getItem('xiaohongshu');
+            const kuaishouPathInput = document.getElementById('path3')+localStorage.getItem('kuaishou');
 
 
 
-      // 初始化进度条
-      function initProgressBar() {
-        const steps = document.querySelectorAll('.step');
-        const progress = document.getElementById('progress');
-        const prevBtn = document.getElementById('prevBtn');
-        const nextBtn = document.getElementById('nextBtn');
-        const resetBtn = document.getElementById('resetBtn');
-        const progressStatus = document.getElementById('progressStatus');
-        const caseSelect = document.getElementById('case-select');
 
-        // 更新进度条和步骤状态
-        function updateProgress() {
-          // 更新进度条宽度
-          const progressWidth = ((currentStep - 1) / (countCase - 1)) * 100;
-          progress.style.width = `${progressWidth}%`;
 
-          // 更新步骤状态
-          steps.forEach((step, index) => {
-            const stepNumber = parseInt(step.getAttribute('data-step'));
-
-            if (stepNumber < currentStep) {
-              step.classList.add('completed');
-              step.classList.remove('active');
-            } else if (stepNumber === currentStep) {
-              step.classList.add('active');
-              step.classList.remove('completed');
-            } else {
-              step.classList.remove('active', 'completed');
+            // 导出路径
+            let outputPath = './output/上海12号线早高峰/';
+            // key 和 case 映射
+            const caseMap = {
+                "1": "首刷",
+                "2": "冷启场景1",
+                "3": "冷启场景2",
+                "4": "冷启场景3",
+                "5": "首页上拉刷新1",
+                "6": "首页上拉刷新2",
+                "7": "首页上拉刷新3",
+                "8": "首页下滑刷新1",
+                "9": "首页下滑刷新2",
+                "10": "首页下滑刷新3",
+                "11": "视频内流1",
+                "12": "视频内流2",
+                "13": "视频内流3",
+                "14": "搜索1",
+                "15": "搜索2",
+                "16": "个人页",
+                "17": "上传图片",
+                "18": "上传视频"
+            };
+            const countCase = Object.keys(caseMap).length;
+            let datas = {}; // 存储所有case的数据
+            //初始化数据结构
+            for (const key in caseMap) {
+                datas[key] = {};
             }
-          });
+            // 扣分数据
+            let negdata = {};
 
-          // 更新状态文本
-          progressStatus.textContent = `当前进度: ${currentStep}/${countCase} - ${caseMap[currentStep]}`;
+            //得分数据
+            let resdata = {};
 
-          // 更新按钮状态
-          prevBtn.disabled = currentStep === 1;
-          nextBtn.disabled = currentStep === countCase;
-
-          // 同步选择框
-          caseSelect.value = currentStep;
-
-          //如果是最后一步，提示完成
-          if (currentStep === countCase) {
-            setdatas();
-            progressStatus.textContent = `恭喜完成可以导出了: ${currentStep}/${countCase} - ${caseMap[currentStep]}`;
-          }
-        }
-
-        // 下一步按钮点击事件
-        nextBtn.addEventListener('click', function () {
-
-          if (!setdatas()) {
-            alert('亲，请输入所有必要的信息哈~');
-            return; // 如果数据不完整，阻止前进
-          }
-          if (currentStep < countCase) {
-            currentStep++;
-            updateProgress();
-          }
-        });
-
-
-        // 上一步按钮点击事件
-        prevBtn.addEventListener('click', function () {
-          if (currentStep > 1) {
-            currentStep--;
-            updateProgress();
-          }
-        });
-
-        // 重置按钮点击事件
-        resetBtn.addEventListener('click', function () {
-          currentStep = 1;
-          updateProgress();
-        });
-
-        // 选择框变化事件
-        caseSelect.addEventListener('change', function () {
-          currentStep = parseInt(this.value);
-          updateProgress();
-        });
-
-        // 初始化进度条
-        updateProgress();
-      }
-
-      // 在DOM加载完成后初始化进度条
-      document.addEventListener('DOMContentLoaded', function () {
-        initProgressBar();
-      });
-
-      //最大分数表
-      const maxScores = {
-        "首刷": 30,
-        "冷启场景": 105,
-        "首页上拉刷新": 128,
-        "首页下滑刷新": 139,
-        "视频内流": 105,
-        "搜索": 99,
-        "个人页": 30,
-        "上传图片": 10,
-        "上传视频": 20,
-      };
-
-      // 保存数据的格式
-      data = {
-        "抖音": {
-          fps: '',
-        },
-        "小红书": {
-          fps: '',
-        },
-        "快手": {
-          fps: '',
-        }
-
-      }
-      //返回的分数
-      resdata = {};
-      /* 
-冷启场景 计算规则
-  ≤50帧   不扣时长
-  ≤90帧     -2
-  ≤112帧    -4
-  ≤200帧   -6
-  >200帧   -8
-  >200帧后每多等待满一秒，扣掉2s消费时长，直至扣完。
-  最多扣30s   
-*/
-      function calculatePlatformPenalty(fps) {
-        let penalty = 0;
-        if (fps <= 50) {
-          penalty = 0;
-        } else if (fps <= 90) {
-          penalty = 2;
-        } else if (fps <= 112) {
-          penalty = 4;
-        } else if (fps <= 200) {
-          penalty = 6;
-        } else {
-          penalty = 8;
-          let extraSeconds = Math.floor((fps - 200) / fps);
-          penalty += extraSeconds * 2;
-          if (penalty > 30) {
-            penalty = 30;
-          }
-
-        }
-        return penalty;
-      }
-
-
-      /* 
-首页上拉刷新 计算规则
-≤35帧  不扣时长
-≤55帧    -2
-≤112帧   -4
-≤150帧   -6
->150帧   -8
->150帧每多等待一秒，扣掉2s消费时长，直至扣完。
-等待超过15s直接扣完
-最多扣35s
-*/
-      function calculateHomePullPenalty(fps) {
-
-        let penalty = 0;
-        if (fps <= 35) {
-          penalty = 0;
-        } else if (fps <= 55) {
-          penalty = 2;
-        } else if (fps <= 112) {
-          penalty = 4;
-        } else if (fps <= 150) {
-          penalty = 6;
-        } else {
-          penalty = 8;
-          let extraSeconds = Math.floor((fps - 150) / fps);
-          penalty += extraSeconds * 2;
-          if (penalty > 30) {
-            penalty = 30;
-          }
-
-        }
-        return penalty;
-      }
-      /* 
-        首页下拉刷新 计算规则
-          ≤35帧  不扣时长
-          ≤55帧    -2
-          ≤112帧   -4
-          ≤150帧   -6
-          >150帧   -8
-          >150帧每多等待一秒，扣掉2s消费时长，直至扣完。
-          等待超过15s直接扣完
-          最多扣35s
-        */
-      function calculateHomePushPenalty(fps) {
-        let penalty = 0;
-        if (fps <= 35) {
-          penalty = 0;
-        } else if (fps <= 55) {
-          penalty = 2;
-        } else if (fps <= 112) {
-          penalty = 4;
-        } else if (fps <= 150) {
-          penalty = 6;
-        } else {
-          penalty = 8;
-          let extraSeconds = Math.floor((fps - 150) / fps);
-          penalty += extraSeconds * 2;
-          if (penalty > 35) {
-            penalty = 35;
-          }
-
-        }
-        return penalty;
-      }
-
-
-      /* 
-             视频内流 计算规则
-               ≤30帧   不扣时长
-               ≤60帧     -2
-               ≤100帧    -4
-               ≤150帧   -6
-               >150帧   -8
-               >150帧后每多等待满一秒，扣掉2s消费时长，直至扣完。
-               最多扣35s
-             */
-      function calculateVideoStreamPenalty(fps) {
-        let penalty = 0;
-        if (fps <= 30) {
-          penalty = 0;
-        } else if (fps <= 60) {
-          penalty = 2;
-        } else if (fps <= 100) {
-          penalty = 4;
-        } else if (fps <= 150) {
-          penalty = 6;
-        } else {
-          penalty = 8;
-          let extraSeconds = Math.floor((fps - 150) / fps);
-          penalty += extraSeconds * 2;
-          if (penalty > 35) {
-            penalty = 35;
-          }
-
-        }
-        return penalty;
-      }
-
-      /*
-          搜索 计算规则
-            全部加载完毕帧率，扣除时长
-            ≤31帧   不扣时长
-            ≤45帧    -2
-            ≤120帧    -4
-            ≤180帧    -6
-            >250帧    -8
-            >250帧每多等待一秒，扣掉2s消费时长，直至扣完
-            最多扣35s
-            等待超过15s 直接扣完
-          */
-      function calculateSearchPenalty(fps) {
-        let penalty = 0;
-        if (fps <= 31) {
-          penalty = 0;
-        } else if (fps <= 45) {
-          penalty = 2;
-        } else if (fps <= 120) {
-          penalty = 4;
-        } else if (fps <= 180) {
-          penalty = 6;
-        } else {
-          penalty = 8;
-          let extraSeconds = Math.floor((fps - 250) / fps);
-          penalty += extraSeconds * 2;
-          if (penalty > 35) {
-            penalty = 35;
-          }
-
-        }
-        return penalty;
-      }
-      /*
-        个人页 计算规则
-          ≤15帧   不扣时长
-          ≤30帧    -2
-          ≤60帧    -4
-          ≤120帧   -6
-          >150帧   加载成功 -8
-          >150帧每多等待一秒，扣掉2s消费时长，直至扣完。
-          最多扣30s
-        */
-      function calculateProfilePenalty(fps) {
-        let penalty = 0;
-        if (fps <= 15) {
-          penalty = 0;
-        } else if (fps <= 30) {
-          penalty = 2;
-        } else if (fps <= 60) {
-          penalty = 4;
-        } else if (fps <= 120) {
-          penalty = 6;
-        } else {
-          penalty = 8;
-          let extraSeconds = Math.floor((fps - 150) / fps);
-          penalty += extraSeconds * 2;
-          if (penalty > 30) {
-            penalty = 30;
-          }
-
-        }
-        return penalty;
-      }
-      /*
-        上传图片 计算规则
-          全部加载完毕帧率，扣除时长
-          ≤30s   不扣时长
-          ≤60s   -2
-          ≤100s  -4
-          ≤150s  -6
-          上传失败，重试成功    -8
-          上传失败，重试失败     -10
-          >100帧每多等待一秒，扣掉2s消费时长，直至扣完。
-          最多扣10s
-        */
-      function calculateImageUploadPenalty(fps) {
-        let penalty = 0;
-        fps = fps / 30; // 转换为秒
-        if (fps <= 30) {
-          penalty = 0;
-        } else if (fps <= 60) {
-          penalty = 2;
-        } else if (fps <= 100) {
-          penalty = 4;
-        } else if (fps <= 150) {
-          penalty = 6;
-        } else {
-          penalty = 8;
-          let extraSeconds = Math.floor((fps - 150) / fps);
-          penalty += extraSeconds * 2;
-          if (penalty > 10) {
-            penalty = 10;
-          }
-
-        }
-        return penalty;
-      }
-      /*
-        上传视频 计算规则
-          全部加载完毕帧率，扣除时长
-          ≤≤50s   不扣时长
-          ≤100s   -4
-          ≤200s  -8
-          ≤300s  -12
-          上传失败，重试成功    -16
-          上传失败，重试失败     -20
-          >120帧每多等待一秒，扣掉2s消费时长，直至扣完。
-          最多扣20s
-        */
-      function calculateVideoUploadPenalty(fps) {
-        let penalty = 0;
-        fps = fps / 30; // 转换为秒
-        if (fps <= 50) {
-          penalty = 0;
-        } else if (fps <= 100) {
-          penalty = 4;
-        } else if (fps <= 200) {
-          penalty = 8;
-        } else if (fps <= 300) {
-          penalty = 12;
-        } else {
-          penalty = 16;
-          let extraSeconds = Math.floor((fps - 300) / fps);
-          penalty += extraSeconds * 2;
-          if (penalty > 20) {
-            penalty = 20;
-          }
-
-        }
-        return penalty;
-      }
-      // 扣分结果表
-      negdata = {
-        "抖音": {},
-        "小红书": {},
-        "快手": {}
-
-      };
-
-      for (let platform in negdata) {
-        for (let scene of ["首刷", "冷启场景", "首页上拉刷新", "首页下滑刷新", "视频内流", "搜索", "个人页", "上传图片", "上传视频"]) {
-          negdata[platform][scene] = 0;
-        }
-      }
-
-      // 计算逻辑
-      function calculatePenalty() {
-
-        //计算扣分数据
-        for (let platform in negdata) {
-          for (let scene in negdata[platform]) {
-            negdata[platform]["首刷"] = -calculatePlatformPenalty(datas[1][platform].fps);
-            negdata[platform]["冷启场景"] = -calculatePlatformPenalty(datas[2][platform].fps) - calculatePlatformPenalty(datas[3][platform].fps) - calculatePlatformPenalty(datas[4][platform].fps);
-            negdata[platform]["首页上拉刷新"] = -calculateHomePullPenalty(datas[5][platform].fps) - calculateHomePullPenalty(datas[6][platform].fps) - calculateHomePullPenalty(datas[7][platform].fps);
-            negdata[platform]["首页下滑刷新"] = -calculateHomePushPenalty(datas[8][platform].fps) - calculateHomePushPenalty(datas[9][platform].fps) - calculateHomePushPenalty(datas[10][platform].fps);
-            negdata[platform]["视频内流"] = -calculateVideoStreamPenalty(datas[11][platform].fps) - calculateVideoStreamPenalty(datas[12][platform].fps) - calculateVideoStreamPenalty(datas[13][platform].fps);
-            negdata[platform]["搜索"] = -calculateSearchPenalty(datas[14][platform].fps) - calculateSearchPenalty(datas[15][platform].fps);
-            negdata[platform]["个人页"] = -calculateProfilePenalty(datas[16][platform].fps);
-            negdata[platform]["上传图片"] = -calculateImageUploadPenalty(datas[17][platform].fps);
-            negdata[platform]["上传视频"] = -calculateVideoUploadPenalty(datas[18][platform].fps);
-          }
-        }
-        //计算得分数据
-
-        resdata = {
-          "抖音": {},
-          "小红书": {},
-          "快手": {}
-        };
-        for (let platform in resdata) {
-          for (let scene in negdata[platform]) {
-            resdata[platform][scene] = maxScores[scene] + negdata[platform][scene];
-          }
-        }
-        console.log('计算结果:', resdata);
-
-        console.log('扣分结果:', negdata);
-      }
-
-
-      // 点击导出按钮
-      document.getElementById('export-btn').addEventListener('click', () => {
-
-        setdatas();
-
-
-
-        // 检查datas 数据 是否都存在，如果不存在，提示用户
-        for (const [key, value] of Object.entries(datas)) {
-          if (!value["抖音"] || !value["小红书"] || !value["快手"]) {
-            alert(`测试场景 "${caseMap[key] || key}" 的数据不完整哈，亲，请确认一下哈。`);
-            return;
-          }
-        }
-        // 计算结果
-        calculatePenalty();
-        //强制等待1秒，确保计算完成
-        setTimeout(() => {
-
-        }, 2000);
-        // ✅ 添加 UTF-8 BOM 头（关键！）
-        let csvContent = "\uFEFF"; // <-- 这是 UTF-8 BOM
-        //表格名称
-        csvContent += `测试结果表 \n`;
-        csvContent += "测试场景,抖音帧数,红书帧数,快手帧数\n";
-        for (const [key, value] of Object.entries(datas)) {
-          const caseName = caseMap[key] || key;
-          const douyinFrames = value["抖音"] ? value["抖音"].fps : '';
-          const xiaohongshuFrames = value["小红书"] ? value["小红书"].fps : '';
-          const kuaishouFrames = value["快手"] ? value["快手"].fps : '';
-          csvContent += `${caseName},${douyinFrames},${xiaohongshuFrames},${kuaishouFrames}\n`;
-        }
-
-        // 表格名称 加粗
-        csvContent += `\n 分数表 \n`;
-
-        //创建第二张表格 计算结果表格
-        csvContent += `测试场景,抖音得分,小红书得分,快手得分,max\n`;
-        for (const [platform, scores] of Object.entries(resdata)) {
-          for (const [caseName, score] of Object.entries(scores)) {
-            csvContent += `${caseName},${resdata["抖音"][caseName]},${resdata["小红书"][caseName]},${resdata["快手"][caseName]},${maxScores[caseName]}\n`;
-          }
-          break; // 只需要循环一次，因为每个平台的测试场景是相同的
-        }
-        // 统计 抖音、小红书、快手 总分
-        let douyinTotal = 0;
-        let xiaohongshuTotal = 0;
-        let kuaishouTotal = 0;
-        for (const [platform, scores] of Object.entries(resdata)) {
-          for (const [caseName, score] of Object.entries(scores)) {
-            if (platform === "抖音") {
-              douyinTotal += score;
-            } else if (platform === "小红书") {
-              xiaohongshuTotal += score;
-            } else if (platform === "快手") {
-              kuaishouTotal += score;
+            // 初始化case选择框
+            const caseSelect = document.getElementById('case-select');
+            for (const key in caseMap) {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = caseMap[key];
+                caseSelect.appendChild(option);
             }
-          }
-        }
-        // 求和所有最大分数
-        maxTotal = 0;
-        for (const [caseName, score] of Object.entries(maxScores)) {
-          maxTotal += score;
-        }
-        
-        // 表格名称 加粗
-        csvContent += `总计,${douyinTotal},${xiaohongshuTotal},${kuaishouTotal},${maxTotal}\n`;
-
-
-        // 表格名称 加粗
-        csvContent += `\n扣分结果表 \n`;
-        //导出扣分结果表格
-        csvContent += `\测试场景,抖音扣分,小红书扣分,快手扣分\n`;
-
-        for (const [platform, scores] of Object.entries(negdata)) {
-          for (const [caseName, score] of Object.entries(scores)) {
-            csvContent += `${caseName},${negdata["抖音"][caseName]},${negdata["小红书"][caseName]},${negdata["快手"][caseName]}\n`;
-          }
-          break; // 只需要循环一次，因为每个平台的测试场景是相同的
-        }
-        // 使用 Blob 导出，避免 encodeURI 对 BOM 的破坏
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-
-        const link = document.createElement("a");
-        link.href = url;
-        // 导出名字为当前时间 年月日时分秒
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hour = String(now.getHours()).padStart(2, '0');
-        const minute = String(now.getMinutes()).padStart(2, '0');
-        const second = String(now.getSeconds()).padStart(2, '0');
-        const fileName = `${year}${month}${day}${hour}${minute}${second}`;
-        link.download = `${fileName}.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
-
-        // 导出datas为json文件
-        const jsonContent = JSON.stringify(datas, null, 2);
-        const jsonBlob = new Blob([jsonContent], { type: 'application/json;charset=utf-8' });
-        const jsonUrl = URL.createObjectURL(jsonBlob);  
-        const jsonLink = document.createElement("a");
-        jsonLink.href = jsonUrl;
-        jsonLink.download = `${fileName}.json`;
-        document.body.appendChild(jsonLink);
-        jsonLink.click();
-        document.body.removeChild(jsonLink);
-        URL.revokeObjectURL(jsonUrl);
-        
+            const progressContainer = document.querySelector('.progress-container');
+            // 生成步骤
+            for (let i = 1; i <= countCase; i++) {
+                const step = document.createElement('div');
+                step.classList.add('step');
+                step.setAttribute('data-step', i);
+                step.textContent = i;
+                progressContainer.appendChild(step);
+            }
 
 
 
-      });
+            //存储导出数据
+            function setdatas() {
+                const platforms = document.getElementById('groups').innerText;
+
+                let douyinfps = '-', xiaohongshufps = '-', kuaishoufps = '-';
+                douyinfps = document.getElementById('framecount1').value ? document.getElementById('framecount1').value : document.getElementById('result1').textContent;
+                xiaohongshufps = document.getElementById('framecount2').value ? document.getElementById('framecount2').value : document.getElementById('result2').textContent;
+                kuaishoufps = document.getElementById('framecount3').value ? document.getElementById('framecount3').value : document.getElementById('result3').textContent;
+
+
+                console.log('当前平台帧数:', douyinfps, xiaohongshufps, kuaishoufps);
+                // fps不为数字则不保存
+                if (isNaN(douyinfps) || isNaN(xiaohongshufps) || isNaN(kuaishoufps)) {
+                    console.log('数据不完整，无法保存');
+                    return false;
+                }
+
+
+                // case value 作为key
+                const key = document.getElementById('case-select').value;
+                datas[key] = {
+                    "抖音": {
+                        fps: douyinfps,
+                        start_time: document.getElementById('start1').value,
+                        end_time: document.getElementById('end1').value,
+                        caseName: caseMap[key],
+                    },
+                    "小红书": {
+                        fps: xiaohongshufps,
+                        start_time: document.getElementById('start2').value,
+                        end_time: document.getElementById('end2').value,
+                        caseName: caseMap[key],
+                    },
+                    "快手": {
+                        fps: kuaishoufps,
+                        start_time: document.getElementById('start3').value,
+                        end_time: document.getElementById('end3').value,
+                        caseName: caseMap[key],
+                    },
+                }
+                console.log('保存的数据:', datas);
+
+
+                // 清空输入框
+                document.getElementById('start1').value = '';
+                document.getElementById('end1').value = '';
+                document.getElementById('start2').value = '';
+                document.getElementById('end2').value = '';
+                document.getElementById('start3').value = '';
+                document.getElementById('end3').value = '';
+                document.getElementById('result1').textContent = '—';
+                document.getElementById('result2').textContent = '—';
+                document.getElementById('result3').textContent = '—';
+                document.getElementById('calc1').textContent = '等待输入...';
+                document.getElementById('calc2').textContent = '等待输入...';
+                document.getElementById('calc3').textContent = '等待输入...';
+
+                clipSingleVideo(key);
+                return true;
+            }
+
+            // 进度条相关变量
+            let currentStep = 1;
 
 
 
-      // 点击保存按钮  存储在dataList中
-      document.getElementById('save-btn').addEventListener('click', () => {
-        setdatas();
+            // 初始化进度条
+            function initProgressBar() {
+                const steps = document.querySelectorAll('.step');
+                const progress = document.getElementById('progress');
+                const prevBtn = document.getElementById('prevBtn');
+                const nextBtn = document.getElementById('nextBtn');
+                const resetBtn = document.getElementById('resetBtn');
+                const progressStatus = document.getElementById('progressStatus');
+                const caseSelect = document.getElementById('case-select');
+
+                // 更新进度条和步骤状态
+                function updateProgress() {
+                    // 更新进度条宽度
+                    const progressWidth = ((currentStep - 1) / (countCase - 1)) * 100;
+                    progress.style.width = `${progressWidth}%`;
+
+                    // 更新步骤状态
+                    steps.forEach((step, index) => {
+                        const stepNumber = parseInt(step.getAttribute('data-step'));
+
+                        if (stepNumber < currentStep) {
+                            step.classList.add('completed');
+                            step.classList.remove('active');
+                        } else if (stepNumber === currentStep) {
+                            step.classList.add('active');
+                            step.classList.remove('completed');
+                        } else {
+                            step.classList.remove('active', 'completed');
+                        }
+                    });
+
+                    // 更新状态文本
+                    progressStatus.textContent = `当前进度: ${currentStep}/${countCase} - ${caseMap[currentStep]}`;
+
+                    // 更新按钮状态
+                    prevBtn.disabled = currentStep === 1;
+                    nextBtn.disabled = currentStep === countCase;
+
+                    // 同步选择框
+                    caseSelect.value = currentStep;
+
+                    //如果是最后一步，提示完成
+                    if (currentStep === countCase) {
+                        setdatas();
+                        progressStatus.textContent = `恭喜完成可以导出了: ${currentStep}/${countCase} - ${caseMap[currentStep]}`;
+                    }
+                }
+
+                // 下一步按钮点击事件
+                nextBtn.addEventListener('click', function () {
+
+                    if (!setdatas()) {
+                        alert('亲，请输入所有必要的信息哈~');
+                        return; // 如果数据不完整，阻止前进
+                    }
+                    if (currentStep < countCase) {
+                        currentStep++;
+                        updateProgress();
+                    }
+                });
+
+
+                // 上一步按钮点击事件
+                prevBtn.addEventListener('click', function () {
+                    if (currentStep > 1) {
+                        currentStep--;
+                        updateProgress();
+                    }
+                });
+
+                // 重置按钮点击事件
+                resetBtn.addEventListener('click', function () {
+                    currentStep = 1;
+                    updateProgress();
+                });
+
+                // 选择框变化事件
+                caseSelect.addEventListener('change', function () {
+                    currentStep = parseInt(this.value);
+                    updateProgress();
+                });
+
+                // 初始化进度条
+                updateProgress();
+            }
+
+            // 在DOM加载完成后初始化进度条
+            document.addEventListener('DOMContentLoaded', function () {
+                initProgressBar();
+            });
+
+            //最大分数表
+            const maxScores = {
+                "首刷": 30,
+                "冷启场景": 105,
+                "首页上拉刷新": 128,
+                "首页下滑刷新": 139,
+                "视频内流": 105,
+                "搜索": 99,
+                "个人页": 30,
+                "上传图片": 10,
+                "上传视频": 20,
+            };
+
+            // 保存数据的格式
+            data = {
+                "抖音": {
+                    fps: '',
+                },
+                "小红书": {
+                    fps: '',
+                },
+                "快手": {
+                    fps: '',
+                }
+
+            }
+            //返回的分数
+            resdata = {};
+            /* 
+      冷启场景 计算规则
+        ≤50帧   不扣时长
+        ≤90帧     -2
+        ≤112帧    -4
+        ≤200帧   -6
+        >200帧   -8
+        >200帧后每多等待满一秒，扣掉2s消费时长，直至扣完。
+        最多扣30s   
+      */
+            function calculatePlatformPenalty(fps) {
+                let penalty = 0;
+                if (fps <= 50) {
+                    penalty = 0;
+                } else if (fps <= 90) {
+                    penalty = 2;
+                } else if (fps <= 112) {
+                    penalty = 4;
+                } else if (fps <= 200) {
+                    penalty = 6;
+                } else {
+                    penalty = 8;
+                    let extraSeconds = Math.floor((fps - 200) / fps);
+                    penalty += extraSeconds * 2;
+                    if (penalty > 30) {
+                        penalty = 30;
+                    }
+
+                }
+                return penalty;
+            }
+            /* 
+      首页上拉刷新 计算规则
+      ≤35帧  不扣时长
+      ≤55帧    -2
+      ≤112帧   -4
+      ≤150帧   -6
+      >150帧   -8
+      >150帧每多等待一秒，扣掉2s消费时长，直至扣完。
+      等待超过15s直接扣完
+      最多扣35s
+      */
+            function calculateHomePullPenalty(fps) {
+
+                let penalty = 0;
+                if (fps <= 35) {
+                    penalty = 0;
+                } else if (fps <= 55) {
+                    penalty = 2;
+                } else if (fps <= 112) {
+                    penalty = 4;
+                } else if (fps <= 150) {
+                    penalty = 6;
+                } else {
+                    penalty = 8;
+                    let extraSeconds = Math.floor((fps - 150) / fps);
+                    penalty += extraSeconds * 2;
+                    if (penalty > 30) {
+                        penalty = 30;
+                    }
+
+                }
+                return penalty;
+            }
+            /* 
+              首页下拉刷新 计算规则
+                ≤35帧  不扣时长
+                ≤55帧    -2
+                ≤112帧   -4
+                ≤150帧   -6
+                >150帧   -8
+                >150帧每多等待一秒，扣掉2s消费时长，直至扣完。
+                等待超过15s直接扣完
+                最多扣35s
+              */
+            function calculateHomePushPenalty(fps) {
+                let penalty = 0;
+                if (fps <= 35) {
+                    penalty = 0;
+                } else if (fps <= 55) {
+                    penalty = 2;
+                } else if (fps <= 112) {
+                    penalty = 4;
+                } else if (fps <= 150) {
+                    penalty = 6;
+                } else {
+                    penalty = 8;
+                    let extraSeconds = Math.floor((fps - 150) / fps);
+                    penalty += extraSeconds * 2;
+                    if (penalty > 35) {
+                        penalty = 35;
+                    }
+
+                }
+                return penalty;
+            }
+
+
+            /* 
+                   视频内流 计算规则
+                     ≤30帧   不扣时长
+                     ≤60帧     -2
+                     ≤100帧    -4
+                     ≤150帧   -6
+                     >150帧   -8
+                     >150帧后每多等待满一秒，扣掉2s消费时长，直至扣完。
+                     最多扣35s
+                   */
+            function calculateVideoStreamPenalty(fps) {
+                let penalty = 0;
+                if (fps <= 30) {
+                    penalty = 0;
+                } else if (fps <= 60) {
+                    penalty = 2;
+                } else if (fps <= 100) {
+                    penalty = 4;
+                } else if (fps <= 150) {
+                    penalty = 6;
+                } else {
+                    penalty = 8;
+                    let extraSeconds = Math.floor((fps - 150) / fps);
+                    penalty += extraSeconds * 2;
+                    if (penalty > 35) {
+                        penalty = 35;
+                    }
+
+                }
+                return penalty;
+            }
+
+            /*
+                搜索 计算规则
+                  全部加载完毕帧率，扣除时长
+                  ≤31帧   不扣时长
+                  ≤45帧    -2
+                  ≤120帧    -4
+                  ≤180帧    -6
+                  >250帧    -8
+                  >250帧每多等待一秒，扣掉2s消费时长，直至扣完
+                  最多扣35s
+                  等待超过15s 直接扣完
+                */
+            function calculateSearchPenalty(fps) {
+                let penalty = 0;
+                if (fps <= 31) {
+                    penalty = 0;
+                } else if (fps <= 45) {
+                    penalty = 2;
+                } else if (fps <= 120) {
+                    penalty = 4;
+                } else if (fps <= 180) {
+                    penalty = 6;
+                } else {
+                    penalty = 8;
+                    let extraSeconds = Math.floor((fps - 250) / fps);
+                    penalty += extraSeconds * 2;
+                    if (penalty > 35) {
+                        penalty = 35;
+                    }
+
+                }
+                return penalty;
+            }
+            /*
+              个人页 计算规则
+                ≤15帧   不扣时长
+                ≤30帧    -2
+                ≤60帧    -4
+                ≤120帧   -6
+                >150帧   加载成功 -8
+                >150帧每多等待一秒，扣掉2s消费时长，直至扣完。
+                最多扣30s
+              */
+            function calculateProfilePenalty(fps) {
+                let penalty = 0;
+                if (fps <= 15) {
+                    penalty = 0;
+                } else if (fps <= 30) {
+                    penalty = 2;
+                } else if (fps <= 60) {
+                    penalty = 4;
+                } else if (fps <= 120) {
+                    penalty = 6;
+                } else {
+                    penalty = 8;
+                    let extraSeconds = Math.floor((fps - 150) / fps);
+                    penalty += extraSeconds * 2;
+                    if (penalty > 30) {
+                        penalty = 30;
+                    }
+
+                }
+                return penalty;
+            }
+            /*
+              上传图片 计算规则
+                全部加载完毕帧率，扣除时长
+                ≤30s   不扣时长
+                ≤60s   -2
+                ≤100s  -4
+                ≤150s  -6
+                上传失败，重试成功    -8
+                上传失败，重试失败     -10
+                >100帧每多等待一秒，扣掉2s消费时长，直至扣完。
+                最多扣10s
+              */
+            function calculateImageUploadPenalty(fps) {
+                let penalty = 0;
+                fps = fps / 30; // 转换为秒
+                if (fps <= 30) {
+                    penalty = 0;
+                } else if (fps <= 60) {
+                    penalty = 2;
+                } else if (fps <= 100) {
+                    penalty = 4;
+                } else if (fps <= 150) {
+                    penalty = 6;
+                } else {
+                    penalty = 8;
+                    let extraSeconds = Math.floor((fps - 150) / fps);
+                    penalty += extraSeconds * 2;
+                    if (penalty > 10) {
+                        penalty = 10;
+                    }
+
+                }
+                return penalty;
+            }
+            /*
+              上传视频 计算规则
+                全部加载完毕帧率，扣除时长
+                ≤≤50s   不扣时长
+                ≤100s   -4
+                ≤200s  -8
+                ≤300s  -12
+                上传失败，重试成功    -16
+                上传失败，重试失败     -20
+                >120帧每多等待一秒，扣掉2s消费时长，直至扣完。
+                最多扣20s
+              */
+            function calculateVideoUploadPenalty(fps) {
+                let penalty = 0;
+                fps = fps / 30; // 转换为秒
+                if (fps <= 50) {
+                    penalty = 0;
+                } else if (fps <= 100) {
+                    penalty = 4;
+                } else if (fps <= 200) {
+                    penalty = 8;
+                } else if (fps <= 300) {
+                    penalty = 12;
+                } else {
+                    penalty = 16;
+                    let extraSeconds = Math.floor((fps - 300) / fps);
+                    penalty += extraSeconds * 2;
+                    if (penalty > 20) {
+                        penalty = 20;
+                    }
+
+                }
+                return penalty;
+            }
+            // 扣分结果表
+            negdata = {
+                "抖音": {},
+                "小红书": {},
+                "快手": {}
+
+            };
+
+            for (let platform in negdata) {
+                for (let scene of ["首刷", "冷启场景", "首页上拉刷新", "首页下滑刷新", "视频内流", "搜索", "个人页", "上传图片", "上传视频"]) {
+                    negdata[platform][scene] = 0;
+                }
+            }
+
+            // 计算逻辑
+            function calculatePenalty() {
+
+                //计算扣分数据
+                for (let platform in negdata) {
+                    for (let scene in negdata[platform]) {
+                        negdata[platform]["首刷"] = -calculatePlatformPenalty(datas[1][platform].fps);
+                        negdata[platform]["冷启场景"] = -calculatePlatformPenalty(datas[2][platform].fps) - calculatePlatformPenalty(datas[3][platform].fps) - calculatePlatformPenalty(datas[4][platform].fps);
+                        negdata[platform]["首页上拉刷新"] = -calculateHomePullPenalty(datas[5][platform].fps) - calculateHomePullPenalty(datas[6][platform].fps) - calculateHomePullPenalty(datas[7][platform].fps);
+                        negdata[platform]["首页下滑刷新"] = -calculateHomePushPenalty(datas[8][platform].fps) - calculateHomePushPenalty(datas[9][platform].fps) - calculateHomePushPenalty(datas[10][platform].fps);
+                        negdata[platform]["视频内流"] = -calculateVideoStreamPenalty(datas[11][platform].fps) - calculateVideoStreamPenalty(datas[12][platform].fps) - calculateVideoStreamPenalty(datas[13][platform].fps);
+                        negdata[platform]["搜索"] = -calculateSearchPenalty(datas[14][platform].fps) - calculateSearchPenalty(datas[15][platform].fps);
+                        negdata[platform]["个人页"] = -calculateProfilePenalty(datas[16][platform].fps);
+                        negdata[platform]["上传图片"] = -calculateImageUploadPenalty(datas[17][platform].fps);
+                        negdata[platform]["上传视频"] = -calculateVideoUploadPenalty(datas[18][platform].fps);
+                    }
+                }
+                //计算得分数据
+
+                resdata = {
+                    "抖音": {},
+                    "小红书": {},
+                    "快手": {}
+                };
+                for (let platform in resdata) {
+                    for (let scene in negdata[platform]) {
+                        resdata[platform][scene] = maxScores[scene] + negdata[platform][scene];
+                    }
+                }
+                console.log('计算结果:', resdata);
+
+                console.log('扣分结果:', negdata);
+            }
+
+
+            // 点击导出按钮
+            document.getElementById('export-btn').addEventListener('click', () => {
+
+                setdatas();
 
 
 
-      });
+                // 检查datas 数据 是否都存在，如果不存在，提示用户
+                for (const [key, value] of Object.entries(datas)) {
+                    if (!value["抖音"] || !value["小红书"] || !value["快手"]) {
+                        alert(`测试场景 "${caseMap[key] || key}" 的数据不完整哈，亲，请确认一下哈。`);
+                        return;
+                    }
+                }
+                // 计算结果
+                calculatePenalty();
+                //强制等待1秒，确保计算完成
+                setTimeout(() => {
+
+                }, 2000);
+                // ✅ 添加 UTF-8 BOM 头（关键！）
+                let csvContent = "\uFEFF"; // <-- 这是 UTF-8 BOM
+                //表格名称
+                csvContent += `测试结果表 \n`;
+                csvContent += "测试场景,抖音帧数,红书帧数,快手帧数\n";
+                for (const [key, value] of Object.entries(datas)) {
+                    const caseName = caseMap[key] || key;
+                    const douyinFrames = value["抖音"] ? value["抖音"].fps : '';
+                    const xiaohongshuFrames = value["小红书"] ? value["小红书"].fps : '';
+                    const kuaishouFrames = value["快手"] ? value["快手"].fps : '';
+                    csvContent += `${caseName},${douyinFrames},${xiaohongshuFrames},${kuaishouFrames}\n`;
+                }
+
+                // 表格名称 加粗
+                csvContent += `\n 分数表 \n`;
+
+                //创建第二张表格 计算结果表格
+                csvContent += `测试场景,抖音得分,小红书得分,快手得分,max\n`;
+                for (const [platform, scores] of Object.entries(resdata)) {
+                    for (const [caseName, score] of Object.entries(scores)) {
+                        csvContent += `${caseName},${resdata["抖音"][caseName]},${resdata["小红书"][caseName]},${resdata["快手"][caseName]},${maxScores[caseName]}\n`;
+                    }
+                    break; // 只需要循环一次，因为每个平台的测试场景是相同的
+                }
+                // 统计 抖音、小红书、快手 总分
+                let douyinTotal = 0;
+                let xiaohongshuTotal = 0;
+                let kuaishouTotal = 0;
+                for (const [platform, scores] of Object.entries(resdata)) {
+                    for (const [caseName, score] of Object.entries(scores)) {
+                        if (platform === "抖音") {
+                            douyinTotal += score;
+                        } else if (platform === "小红书") {
+                            xiaohongshuTotal += score;
+                        } else if (platform === "快手") {
+                            kuaishouTotal += score;
+                        }
+                    }
+                }
+                // 求和所有最大分数
+                maxTotal = 0;
+                for (const [caseName, score] of Object.entries(maxScores)) {
+                    maxTotal += score;
+                }
+
+                // 表格名称 加粗
+                csvContent += `总计,${douyinTotal},${xiaohongshuTotal},${kuaishouTotal},${maxTotal}\n`;
+
+
+                // 表格名称 加粗
+                csvContent += `\n扣分结果表 \n`;
+                //导出扣分结果表格
+                csvContent += `\测试场景,抖音扣分,小红书扣分,快手扣分\n`;
+
+                for (const [platform, scores] of Object.entries(negdata)) {
+                    for (const [caseName, score] of Object.entries(scores)) {
+                        csvContent += `${caseName},${negdata["抖音"][caseName]},${negdata["小红书"][caseName]},${negdata["快手"][caseName]}\n`;
+                    }
+                    break; // 只需要循环一次，因为每个平台的测试场景是相同的
+                }
+                // 使用 Blob 导出，避免 encodeURI 对 BOM 的破坏
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+
+                const link = document.createElement("a");
+                link.href = url;
+                // 导出名字为当前时间 年月日时分秒
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hour = String(now.getHours()).padStart(2, '0');
+                const minute = String(now.getMinutes()).padStart(2, '0');
+                const second = String(now.getSeconds()).padStart(2, '0');
+                const fileName = `${year}${month}${day}${hour}${minute}${second}`;
+                link.download = `${fileName}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+
+                // 导出datas为json文件
+                const jsonContent = JSON.stringify(datas, null, 2);
+                const jsonBlob = new Blob([jsonContent], { type: 'application/json;charset=utf-8' });
+                const jsonUrl = URL.createObjectURL(jsonBlob);
+                const jsonLink = document.createElement("a");
+                jsonLink.href = jsonUrl;
+                jsonLink.download = `${fileName}.json`;
+                document.body.appendChild(jsonLink);
+                jsonLink.click();
+                document.body.removeChild(jsonLink);
+                URL.revokeObjectURL(jsonUrl);
+
+
+
+
+            });
+
+
+
+            // 点击保存按钮  存储在dataList中
+            document.getElementById('save-btn').addEventListener('click', () => {
+                setdatas();
+
+
+
+            });
 
 
 
 
 
 
-      document.addEventListener('DOMContentLoaded', () => {
-        const platforms = ['抖音', '小红书', '快手'];
-        const groups = document.getElementById('groups');
-        const fpsSelect = document.getElementById('fps');
-        const customFpsInput = document.getElementById('custom-fps');
+            document.addEventListener('DOMContentLoaded', () => {
+                const platforms = ['抖音', '小红书', '快手'];
+                const groups = document.getElementById('groups');
+                const fpsSelect = document.getElementById('fps');
+                const customFpsInput = document.getElementById('custom-fps');
 
-        // 创建每个平台输入块
+                // 创建每个平台输入块
 
-        platforms.forEach((name, i) => {
-          const idx = i + 1;
-          const box = document.createElement('div');
-          box.className = 'time-group';
-          box.innerHTML = `
+                platforms.forEach((name, i) => {
+                    const idx = i + 1;
+                    const box = document.createElement('div');
+                    box.className = 'time-group';
+                    box.innerHTML = `
       <h3>${name}</h3>
       <div class="row">
         <label class="inline">开始:</label>
@@ -1079,413 +1107,503 @@
         <input class="timecode" id="end${idx}" placeholder="010129" />
         <button class="copy-btn" id="copy${idx}" disabled>复制</button>
         <input class="inputfps" id="framecount${idx}" placeholder="请输入帧数" />
+        <input class="inputpath" id="path${idx}" placeholder="请输入路径" />
       </div>
       <div class="result-line" id="resLine${idx}">帧数差: <span id="result${idx}">—</span> 帧</div>
       <div class="calc" id="calc${idx}">等待输入...</div>
     `;
-          groups.appendChild(box);
-        });
+                    groups.appendChild(box);
+                });
 
 
 
 
-        // 帧率事件
-        fpsSelect.addEventListener('change', () => {
-          customFpsInput.style.display = fpsSelect.value === 'custom' ? 'inline-block' : 'none';
-          calculateAll();
-        });
-        customFpsInput.addEventListener('input', calculateAll);
-        groups.addEventListener('input', calculateAll);
+                // 帧率事件
+                fpsSelect.addEventListener('change', () => {
+                    customFpsInput.style.display = fpsSelect.value === 'custom' ? 'inline-block' : 'none';
+                    calculateAll();
+                });
+                customFpsInput.addEventListener('input', calculateAll);
+                groups.addEventListener('input', calculateAll);
 
-        // 复制事件
-        for (let i = 1; i <= 3; i++) {
-          const btn = document.getElementById(`copy${i}`);
-          btn.addEventListener('click', async () => {
-            const res = document.getElementById(`result${i}`).textContent;
-            try {
-              await navigator.clipboard.writeText(res);
-              const original = btn.textContent;
-              btn.textContent = '已复制';
-              btn.disabled = true;
-              setTimeout(() => { btn.textContent = original; calculate(i); }, 900);
-            } catch {
-              const ta = document.createElement('textarea');
-              ta.value = res;
-              document.body.appendChild(ta);
-              ta.select();
-              document.execCommand('copy');
-              document.body.removeChild(ta);
-              const original = btn.textContent;
-              btn.textContent = '已复制';
-              btn.disabled = true;
-              setTimeout(() => { btn.textContent = original; calculate(i); }, 900);
-            }
-          });
-        }
+                // 复制事件
+                for (let i = 1; i <= 3; i++) {
+                    const btn = document.getElementById(`copy${i}`);
+                    btn.addEventListener('click', async () => {
+                        const res = document.getElementById(`result${i}`).textContent;
+                        try {
+                            await navigator.clipboard.writeText(res);
+                            const original = btn.textContent;
+                            btn.textContent = '已复制';
+                            btn.disabled = true;
+                            setTimeout(() => { btn.textContent = original; calculate(i); }, 900);
+                        } catch {
+                            const ta = document.createElement('textarea');
+                            ta.value = res;
+                            document.body.appendChild(ta);
+                            ta.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(ta);
+                            const original = btn.textContent;
+                            btn.textContent = '已复制';
+                            btn.disabled = true;
+                            setTimeout(() => { btn.textContent = original; calculate(i); }, 900);
+                        }
+                    });
+                }
 
-        function calculateAll() {
-          for (let i = 1; i <= 3; i++) calculate(i);
-        }
+                function calculateAll() {
+                    for (let i = 1; i <= 3; i++) calculate(i);
+                }
 
-        function calculate(i) {
-          const s = document.getElementById(`start${i}`).value.trim();
-          const e = document.getElementById(`end${i}`).value.trim();
-          const resEl = document.getElementById(`result${i}`);
-          const resLine = document.getElementById(`resLine${i}`);
-          const calcEl = document.getElementById(`calc${i}`);
-          const copyBtn = document.getElementById(`copy${i}`);
+                function calculate(i) {
+                    const s = document.getElementById(`start${i}`).value.trim();
+                    const e = document.getElementById(`end${i}`).value.trim();
+                    const resEl = document.getElementById(`result${i}`);
+                    const resLine = document.getElementById(`resLine${i}`);
+                    const calcEl = document.getElementById(`calc${i}`);
+                    const copyBtn = document.getElementById(`copy${i}`);
 
-          const start = parseTC(s), end = parseTC(e);
-          let fps = fpsSelect.value === 'custom' ? parseFloat(customFpsInput.value) : parseFloat(fpsSelect.value);
-          if (!(fps > 0)) fps = 0;
+                    const start = parseTC(s), end = parseTC(e);
+                    let fps = fpsSelect.value === 'custom' ? parseFloat(customFpsInput.value) : parseFloat(fpsSelect.value);
+                    if (!(fps > 0)) fps = 0;
 
-          if (start && end && fps > 0) {
-            const startFrames = (start.minutes * 60 + start.seconds) * fps + start.frames;
-            const endFrames = (end.minutes * 60 + end.seconds) * fps + end.frames;
-            const diff = endFrames - startFrames;
+                    if (start && end && fps > 0) {
+                        const startFrames = (start.minutes * 60 + start.seconds) * fps + start.frames;
+                        const endFrames = (end.minutes * 60 + end.seconds) * fps + end.frames;
+                        const diff = endFrames - startFrames;
 
-            const timeDiff = { minutes: end.minutes - start.minutes, seconds: end.seconds - start.seconds, frames: end.frames - start.frames };
-            if (timeDiff.frames < 0) { timeDiff.frames += fps; timeDiff.seconds--; }
-            if (timeDiff.seconds < 0) { timeDiff.seconds += 60; timeDiff.minutes--; }
+                        const timeDiff = { minutes: end.minutes - start.minutes, seconds: end.seconds - start.seconds, frames: end.frames - start.frames };
+                        if (timeDiff.frames < 0) { timeDiff.frames += fps; timeDiff.seconds--; }
+                        if (timeDiff.seconds < 0) { timeDiff.seconds += 60; timeDiff.minutes--; }
 
-            const diffRound = Math.round(diff);
-            resEl.textContent = diffRound;
-            resLine.style.display = 'block';
-            calcEl.textContent = `开始: ${fmt(start)} → 结束: ${fmt(end)} | 时间差: ${timeDiff.minutes}分${timeDiff.seconds}秒${Math.round(timeDiff.frames)}帧 | 帧率: ${fps}`;
-            copyBtn.disabled = false;
-          } else {
-            resEl.textContent = '—';
-            resLine.style.display = 'none';
-            calcEl.textContent = '请输入有效时间码';
-            copyBtn.disabled = true;
-          }
-        }
+                        const diffRound = Math.round(diff);
+                        resEl.textContent = diffRound;
+                        resLine.style.display = 'block';
+                        calcEl.textContent = `开始: ${fmt(start)} → 结束: ${fmt(end)} | 时间差: ${timeDiff.minutes}分${timeDiff.seconds}秒${Math.round(timeDiff.frames)}帧 | 帧率: ${fps}`;
+                        copyBtn.disabled = false;
+                    } else {
+                        resEl.textContent = '—';
+                        resLine.style.display = 'none';
+                        calcEl.textContent = '请输入有效时间码';
+                        copyBtn.disabled = true;
+                    }
+                }
 
-        function parseTC(str) {
-          if (!str || str.length !== 6) return null;
-          const m = parseInt(str.slice(0, 2)), s = parseInt(str.slice(2, 4)), f = parseInt(str.slice(4, 6));
-          if (Number.isNaN(m) || Number.isNaN(s) || Number.isNaN(f) || s >= 60 || m < 0 || s < 0 || f < 0) return null;
-          return { minutes: m, seconds: s, frames: f };
-        }
-        function fmt(t) { return `${t.minutes.toString().padStart(2, '0')}:${t.seconds.toString().padStart(2, '0')}:${t.frames.toString().padStart(2, '0')}`; }
+                function parseTC(str) {
+                    if (!str || str.length !== 6) return null;
+                    const m = parseInt(str.slice(0, 2)), s = parseInt(str.slice(2, 4)), f = parseInt(str.slice(4, 6));
+                    if (Number.isNaN(m) || Number.isNaN(s) || Number.isNaN(f) || s >= 60 || m < 0 || s < 0 || f < 0) return null;
+                    return { minutes: m, seconds: s, frames: f };
+                }
+                function fmt(t) { return `${t.minutes.toString().padStart(2, '0')}:${t.seconds.toString().padStart(2, '0')}:${t.frames.toString().padStart(2, '0')}`; }
 
-        calculateAll();
-      });
-
-      // 帧转时间转换：MMSS00 → HH:MM:SS.000
-      function formatTime(timeStr) {
-        const mm = timeStr.slice(0, 2);
-        const ss = timeStr.slice(2, 4);
-        let frames = timeStr.slice(4, 6);
-        const hh = '00';
-        // 帧转毫秒
-        frames = frames / 30 * 1000; // 假设帧率为30fps
-        // 毫秒转三位字符串,截取前三位
-        frames = String(Math.round(frames)).padStart(3, '0').slice(0, 3);
-
-        return `${hh}:${mm}:${ss}.${frames}`; // 假设帧转为毫秒？或直接拼接
-      }
-
-
-
-      // 剪辑视频的参数
-      let clipSettings = {
-
-      }
-
-      // 设置剪辑参数
-      function setClipSettings() {
-        try {
-          clipSettings = {
-            "首刷": datas["1"],
-            "冷启场景": {
-              "抖音": {
-                start_time: datas["2"]["抖音"].start_time,
-                end_time: datas["4"]["抖音"].end_time,
-              },
-              "小红书": {
-                start_time: datas["2"]["小红书"].start_time,
-                end_time: datas["4"]["小红书"].end_time,
-              },
-              "快手": {
-                start_time: datas["2"]["快手"].start_time,
-                end_time: datas["4"]["快手"].end_time,
-              },
-            },
-            "首页上拉刷新": {
-              "抖音": {
-                start_time: datas["5"]["抖音"].start_time,
-                end_time: datas["7"]["抖音"].end_time,
-              },
-              "小红书": {
-                start_time: datas["5"]["小红书"].start_time,
-                end_time: datas["7"]["小红书"].end_time,
-              },
-              "快手": {
-                start_time: datas["5"]["快手"].start_time,
-                end_time: datas["7"]["快手"].end_time,
-              },
-            },
-            "首页下滑刷新": {
-              "抖音": {
-                start_time: datas["8"]["抖音"].start_time,
-                end_time: datas["10"]["抖音"].end_time,
-              },
-              "小红书": {
-                start_time: datas["8"]["小红书"].start_time,
-                end_time: datas["10"]["小红书"].end_time,
-              },
-              "快手": {
-                start_time: datas["8"]["快手"].start_time,
-                end_time: datas["10"]["快手"].end_time,
-              },
-            },
-            "视频内流": {
-              "抖音": {
-                start_time: datas["11"]["抖音"].start_time,
-                end_time: datas["13"]["抖音"].end_time,
-              },
-              "小红书": {
-                start_time: datas["11"]["小红书"].start_time,
-                end_time: datas["13"]["小红书"].end_time,
-              },
-              "快手": {
-                start_time: datas["11"]["快手"].start_time,
-                end_time: datas["13"]["快手"].end_time,
-              },
-            },
-            "搜索": {
-              "抖音": {
-                start_time: datas["14"]["抖音"].start_time,
-                end_time: datas["15"]["抖音"].end_time,
-              },
-              "小红书": {
-                start_time: datas["14"]["小红书"].start_time,
-                end_time: datas["15"]["小红书"].end_time,
-              },
-              "快手": {
-                start_time: datas["14"]["快手"].start_time,
-                end_time: datas["15"]["快手"].end_time,
-              },
-            },
-            "个人页": datas["16"],
-            "上传图片": datas["17"],
-            "上传视频": datas["18"]
-          };
-        } catch (error) {
-          console.log('部分剪辑参数设置失败:', error);
-        }
-
-      }
-
-      /**
-       * 封装的发送函数（纯浏览器 JS）
-       * @param {string} caseName - 编号，如 "1", "2", ..., "15"
-       * @returns {Promise<string>} - 后端返回的文本
-       */
-      function sendMergeRequest(caseName) {
-        const sendData = clipSettings[caseName];
-        if (!sendData) {
-          return Promise.reject(`❌ ${caseName} 不存在`);
-        }
-        //当前数据
-        console.log('当前数据:', sendData);
-        const dy = sendData["抖音"];
-        const xhs = sendData["小红书"];
-        const ks = sendData["快手"];
-
-        // 获取case名称
-        const outputName = outputPath + (caseMap[caseName] || caseName) + ".mp4";
-
-        // 获得 小红书，抖音，快手 最大时长
-
-        const payload = {
-          input1: douyinPath,
-          start1: formatTime(dy.start_time),
-          end1: formatTime(dy.end_time),
-
-          input2: xiaohongshuPath,
-          start2: formatTime(xhs.start_time),
-          end2: formatTime(xhs.end_time),
-
-          input3: kuaishouPath,
-          start3: formatTime(ks.start_time),
-          end3: formatTime(ks.end_time),
-
-          output: outputName,
-          max_duration: null
-        };
-        // 打印payload
-        console.log('发送的payload:', payload);
-
-        const myHeaders = new Headers();
-        myHeaders.append("Content-Type", "application/json");
-
-        return fetch("http://127.0.0.1:8000/merge", {
-          method: "POST",
-          headers: myHeaders,
-          body: JSON.stringify(payload),
-          redirect: "follow"
-        })
-          .then(response => {
-            if (!response.ok) {
-              throw new Error(`HTTP 错误！状态: ${response.status}`);
-            }
-            return response.text();
-          });
-      }
-
-      //剪辑视频按钮
-      document.getElementById('clip-btn').addEventListener('click', () => {
-
-        //初始化剪辑设置
-        setClipSettings();
-
-        // 发送所有剪辑请求
-        for (let caseName in clipSettings) {
-          sendMergeRequest(caseName)
-            .then(resultText => {
-              console.log(`✅ 编号 ${caseName} 视频剪辑成功！\n返回信息: ${resultText}`);
-            })
-            .catch(error => {
-              alert(`❌ 编号 ${caseName} 视频剪辑失败！\n错误信息: ${error.message}`);
+                calculateAll();
             });
-        }
-      });
 
-      // 单次剪辑按钮
-      document.getElementById('clip-single-btn').addEventListener('click', () => {
-        // 获取选择的case
-        const caseName = document.getElementById('case-select').value;
-        const sendData = datas[caseName];
+            // 帧转时间转换：MMSS00 → HH:MM:SS.000
+            function formatTime(timeStr) {
+                const mm = timeStr.slice(0, 2);
+                const ss = timeStr.slice(2, 4);
+                let frames = timeStr.slice(4, 6);
+                const hh = '00';
+                // 帧转毫秒
+                frames = frames / 30 * 1000; // 假设帧率为30fps
+                // 毫秒转三位字符串,截取前三位
+                frames = String(Math.round(frames)).padStart(3, '0').slice(0, 3);
 
-        if (!sendData) {
-          alert(`❌ ${caseName} 不存在`);
-          return;
-        }
-
-        // 当前数据
-        console.log('当前数据:', sendData);
-
-        const dy = sendData["抖音"];
-        const xhs = sendData["小红书"];
-        const ks = sendData["快手"];
-
-        // 获取case名称（用于输出文件名）
-        const outputName = outputPath + (caseMap[caseName] || caseName) + ".mp4";
-        // 构造 payload
-        const payload = {
-          input1: douyinPath,
-          start1: formatTime(dy.start_time),
-          end1: formatTime(dy.end_time),
-
-          input2: xiaohongshuPath,
-          start2: formatTime(xhs.start_time),
-          end2: formatTime(xhs.end_time),
-
-          input3: kuaishouPath,
-          start3: formatTime(ks.start_time),
-          end3: formatTime(ks.end_time),
-
-          output: outputName,
-          max_duration: null
-        };
-
-        console.log('发送的payload:', payload);
-
-        const myHeaders = new Headers();
-        myHeaders.append("Content-Type", "application/json");
-
-        // 发送请求
-        fetch("http://127.0.0.1:8000/merge", {
-          method: "POST",
-          headers: myHeaders,
-          body: JSON.stringify(payload)
-        })
-          .then(response => {
-            if (!response.ok) {
-              throw new Error(`HTTP 错误！状态: ${response.status}`);
+                return `${hh}:${mm}:${ss}.${frames}`; // 假设帧转为毫秒？或直接拼接
             }
-            return response.text();
-          })
-          .then(resultText => {
-            console.log(`✅ 编号 ${caseName} 视频剪辑成功！\n返回信息: ${resultText}`);
-          })
-          .catch(error => {
-            alert(`❌ 编号 ${caseName} 视频剪辑失败！\n错误信息: ${error.message}`);
-          });
-      });
 
-      // 测试
-      function test() {
-        // 给 datas 添加测试数据
-        for (let i = 1; i <= countCase; i++) {
-          datas[i] = {
-            "抖音": {
-              fps: Math.floor(Math.random() * 300) + 1,
-              start_time: '010000',
-              end_time: '010100'
-            },
-            "小红书": {
-              fps: Math.floor(Math.random() * 300) + 1,
-              start_time: '020000',
-              end_time: '020200'
-            },
-            "快手": {
-              fps: Math.floor(Math.random() * 300) + 1,
-              start_time: '030000',
-              end_time: '030300'
-            },
-          };
-        }
-        console.log('测试数据:', datas);
 
-      }
-      // 给输入框增加测试数据
-      function fillTestData() {
-        document.getElementById('start1').value = '000000';
-        document.getElementById('end1').value = '010100';
-        document.getElementById('start2').value = '000000';
-        document.getElementById('end2').value = '010100';
-        document.getElementById('start3').value = '000000';
-        document.getElementById('end3').value = '010100';
-      }
-      // 首刷测试
-      function fillClipTestData() {
 
-        clipSettings = {
-          "首刷": {
-            "抖音": {
-              start_time: '000000',
-              end_time: '010100',
-            },
-            "小红书": {
-              start_time: '000000',
-              end_time: '010100',
-            },
-            "快手": {
-              start_time: '000000',
-              end_time: '010100',
-            },
-          },
-        };
-        sendMergeRequest("首刷")
-          .then(resultText => {
-            alert(`✅ 编号 视频剪辑成功！\n返回信息: ${resultText}`);
-          })
-          .catch(error => {
-            alert(`❌ 编号 视频剪辑失败！\n错误信息: ${error.message}`);
-          });
-      }
+            // 剪辑视频的参数
+            let clipSettings = {
 
-      // 时间转换测试
-      function testTimeFormat() {
-        const testStr = '012329';
-        const formatted = formatTime(testStr);
-        console.log(`时间转换测试: ${testStr} -> ${formatted}`);
+            }
 
-      }
-    </script>
+            // 设置剪辑参数
+            function setClipSettings() {
+                try {
+                    clipSettings = {
+                        "首刷": datas["1"],
+                        "冷启场景": {
+                            "抖音": {
+                                start_time: datas["2"]["抖音"].start_time,
+                                end_time: datas["4"]["抖音"].end_time,
+                            },
+                            "小红书": {
+                                start_time: datas["2"]["小红书"].start_time,
+                                end_time: datas["4"]["小红书"].end_time,
+                            },
+                            "快手": {
+                                start_time: datas["2"]["快手"].start_time,
+                                end_time: datas["4"]["快手"].end_time,
+                            },
+                        },
+                        "首页上拉刷新": {
+                            "抖音": {
+                                start_time: datas["5"]["抖音"].start_time,
+                                end_time: datas["7"]["抖音"].end_time,
+                            },
+                            "小红书": {
+                                start_time: datas["5"]["小红书"].start_time,
+                                end_time: datas["7"]["小红书"].end_time,
+                            },
+                            "快手": {
+                                start_time: datas["5"]["快手"].start_time,
+                                end_time: datas["7"]["快手"].end_time,
+                            },
+                        },
+                        "首页下滑刷新": {
+                            "抖音": {
+                                start_time: datas["8"]["抖音"].start_time,
+                                end_time: datas["10"]["抖音"].end_time,
+                            },
+                            "小红书": {
+                                start_time: datas["8"]["小红书"].start_time,
+                                end_time: datas["10"]["小红书"].end_time,
+                            },
+                            "快手": {
+                                start_time: datas["8"]["快手"].start_time,
+                                end_time: datas["10"]["快手"].end_time,
+                            },
+                        },
+                        "视频内流": {
+                            "抖音": {
+                                start_time: datas["11"]["抖音"].start_time,
+                                end_time: datas["13"]["抖音"].end_time,
+                            },
+                            "小红书": {
+                                start_time: datas["11"]["小红书"].start_time,
+                                end_time: datas["13"]["小红书"].end_time,
+                            },
+                            "快手": {
+                                start_time: datas["11"]["快手"].start_time,
+                                end_time: datas["13"]["快手"].end_time,
+                            },
+                        },
+                        "搜索": {
+                            "抖音": {
+                                start_time: datas["14"]["抖音"].start_time,
+                                end_time: datas["15"]["抖音"].end_time,
+                            },
+                            "小红书": {
+                                start_time: datas["14"]["小红书"].start_time,
+                                end_time: datas["15"]["小红书"].end_time,
+                            },
+                            "快手": {
+                                start_time: datas["14"]["快手"].start_time,
+                                end_time: datas["15"]["快手"].end_time,
+                            },
+                        },
+                        "个人页": datas["16"],
+                        "上传图片": datas["17"],
+                        "上传视频": datas["18"]
+                    };
+                } catch (error) {
+                    console.log('部分剪辑参数设置失败:', error);
+                }
+
+            }
+
+            /**
+             * 封装的发送函数（纯浏览器 JS）
+             * @param {string} caseName - 编号，如 "1", "2", ..., "15"
+             * @returns {Promise<string>} - 后端返回的文本
+             */
+            function sendMergeRequest(caseName) {
+                const sendData = clipSettings[caseName];
+                if (!sendData) {
+                    return Promise.reject(`❌ ${caseName} 不存在`);
+                }
+                //当前数据
+                console.log('当前数据:', sendData);
+                const dy = sendData["抖音"];
+                const xhs = sendData["小红书"];
+                const ks = sendData["快手"];
+
+                // 获取case名称
+                const outputName = outputPath + (caseMap[caseName] || caseName) + ".mp4";
+
+                // 获得 小红书，抖音，快手 最大时长
+
+                const payload = {
+                    input1: douyinPath,
+                    start1: formatTime(dy.start_time),
+                    end1: formatTime(dy.end_time),
+
+                    input2: xiaohongshuPath,
+                    start2: formatTime(xhs.start_time),
+                    end2: formatTime(xhs.end_time),
+
+                    input3: kuaishouPath,
+                    start3: formatTime(ks.start_time),
+                    end3: formatTime(ks.end_time),
+
+                    output: outputName,
+                    max_duration: null
+                };
+                // 打印payload
+                console.log('发送的payload:', payload);
+
+                const myHeaders = new Headers();
+                myHeaders.append("Content-Type", "application/json");
+
+                return fetch("http://127.0.0.1:8000/merge", {
+                    method: "POST",
+                    headers: myHeaders,
+                    body: JSON.stringify(payload),
+                    redirect: "follow"
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP 错误！状态: ${response.status}`);
+                        }
+                        return response.text();
+                    });
+            }
+
+            // 批量剪辑按钮
+            document.getElementById('clip-btn').addEventListener('click', async () => {
+                setClipSettings();
+                for (const caseName of Object.keys(clipSettings)) {
+                    try {
+                        const resultText = await sendMergeRequest(caseName);
+                        console.log(`✅ 编号 ${caseName} 视频剪辑成功！\n返回信息: ${resultText}`);
+                    } catch (error) {
+                        alert(`❌ 编号 ${caseName} 视频剪辑失败！\n错误信息: ${error.message}`);
+                    }
+                }
+            });
+
+            // 单次剪辑函数
+            function clipSingleVideo(caseName) {
+                // 获取选择的case
+                const sendData = datas[caseName];
+
+                if (!sendData) {
+                    alert(`❌ ${caseName} 不存在`);
+                    return;
+                }
+
+                // 当前数据
+                console.log('当前数据:', sendData);
+
+                const dy = sendData["抖音"];
+                const xhs = sendData["小红书"];
+                const ks = sendData["快手"];
+
+                // 获取case名称（用于输出文件名）
+                const outputName = outputPath + (caseMap[caseName] || caseName) + ".mp4";
+                // 构造 payload
+                const payload = {
+                    input1: douyinPath,
+                    start1: formatTime(dy.start_time),
+                    end1: formatTime(dy.end_time),
+
+                    input2: xiaohongshuPath,
+                    start2: formatTime(xhs.start_time),
+                    end2: formatTime(xhs.end_time),
+
+                    input3: kuaishouPath,
+                    start3: formatTime(ks.start_time),
+                    end3: formatTime(ks.end_time),
+
+                    output: outputName,
+                    max_duration: null
+                };
+
+                console.log('发送的payload:', payload);
+
+                const myHeaders = new Headers();
+                myHeaders.append("Content-Type", "application/json");
+
+                // 发送请求
+                fetch("http://127.0.0.1:8000/merge", {
+                    method: "POST",
+                    headers: myHeaders,
+                    body: JSON.stringify(payload)
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP 错误！状态: ${response.status}`);
+                        }
+                        return response.text();
+                    })
+                    .then(resultText => {
+                        console.log(`✅ 编号 ${caseName} 视频剪辑成功！\n返回信息: ${resultText}`);
+                    })
+                    .catch(error => {
+                        alert(`❌ 编号 ${caseName} 视频剪辑失败！\n错误信息: ${error.message}`);
+                    });
+            }
+
+            // 单次剪辑按钮
+            document.getElementById('clip-single-btn').addEventListener('click', () => {
+                // 获取选择的case
+                const caseName = document.getElementById('case-select').value;
+                const sendData = datas[caseName];
+
+                if (!sendData) {
+                    alert(`❌ ${caseName} 不存在`);
+                    return;
+                }
+
+                // 当前数据
+                console.log('当前数据:', sendData);
+
+                const dy = sendData["抖音"];
+                const xhs = sendData["小红书"];
+                const ks = sendData["快手"];
+
+                // 获取case名称（用于输出文件名）
+                const outputName = outputPath + (caseMap[caseName] || caseName) + ".mp4";
+                // 构造 payload
+                const payload = {
+                    input1: douyinPath,
+                    start1: formatTime(dy.start_time),
+                    end1: formatTime(dy.end_time),
+
+                    input2: xiaohongshuPath,
+                    start2: formatTime(xhs.start_time),
+                    end2: formatTime(xhs.end_time),
+
+                    input3: kuaishouPath,
+                    start3: formatTime(ks.start_time),
+                    end3: formatTime(ks.end_time),
+
+                    output: outputName,
+                    max_duration: null
+                };
+
+                console.log('发送的payload:', payload);
+
+                const myHeaders = new Headers();
+                myHeaders.append("Content-Type", "application/json");
+
+                // 发送请求
+                fetch("http://127.0.0.1:8000/merge", {
+                    method: "POST",
+                    headers: myHeaders,
+                    body: JSON.stringify(payload)
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP 错误！状态: ${response.status}`);
+                        }
+                        return response.text();
+                    })
+                    .then(resultText => {
+                        console.log(`✅ 编号 ${caseName} 视频剪辑成功！\n返回信息: ${resultText}`);
+                    })
+                    .catch(error => {
+                        alert(`❌ 编号 ${caseName} 视频剪辑失败！\n错误信息: ${error.message}`);
+                    });
+            });
+
+            // 测试
+            function test() {
+                // 给 datas 添加测试数据
+                for (let i = 1; i <= countCase; i++) {
+                    datas[i] = {
+                        "抖音": {
+                            fps: Math.floor(Math.random() * 300) + 1,
+                            start_time: '010000',
+                            end_time: '010100'
+                        },
+                        "小红书": {
+                            fps: Math.floor(Math.random() * 300) + 1,
+                            start_time: '020000',
+                            end_time: '020200'
+                        },
+                        "快手": {
+                            fps: Math.floor(Math.random() * 300) + 1,
+                            start_time: '030000',
+                            end_time: '030300'
+                        },
+                    };
+                }
+                console.log('测试数据:', datas);
+
+            }
+            // 给输入框增加测试数据
+            function fillTestData() {
+                document.getElementById('start1').value = '000000';
+                document.getElementById('end1').value = '010100';
+                document.getElementById('start2').value = '000000';
+                document.getElementById('end2').value = '010100';
+                document.getElementById('start3').value = '000000';
+                document.getElementById('end3').value = '010100';
+            }
+            // 首刷测试
+            function fillClipTestData() {
+
+                clipSettings = {
+                    "首刷": {
+                        "抖音": {
+                            start_time: '000000',
+                            end_time: '010100',
+                        },
+                        "小红书": {
+                            start_time: '000000',
+                            end_time: '010100',
+                        },
+                        "快手": {
+                            start_time: '000000',
+                            end_time: '010100',
+                        },
+                    },
+                };
+                sendMergeRequest("首刷")
+                    .then(resultText => {
+                        alert(`✅ 编号 视频剪辑成功！\n返回信息: ${resultText}`);
+                    })
+                    .catch(error => {
+                        alert(`❌ 编号 视频剪辑失败！\n错误信息: ${error.message}`);
+                    });
+            }
+
+            // 时间转换测试
+            function testTimeFormat() {
+                const testStr = '012329';
+                const formatted = formatTime(testStr);
+                console.log(`时间转换测试: ${testStr} -> ${formatted}`);
+
+            }
+
+
+            document.addEventListener('DOMContentLoaded', () => {
+                const douyinPathInput = document.getElementById('path1');
+                const xiaohongshuPathInput = document.getElementById('path2');
+                const kuaishouPathInput = document.getElementById('path3');
+                const outputPathInput = document.getElementById('output-path');
+                // 安全绑定
+                douyinPathInput?.addEventListener('input', () => {
+                    douyinPath = clipPathPrefix + douyinPathInput.value + '/' + localStorage.getItem('douyin');
+                    console.log('抖音路径:', douyinPath);
+                });
+
+                xiaohongshuPathInput?.addEventListener('input', () => {
+                    xiaohongshuPath = clipPathPrefix + xiaohongshuPathInput.value + '/' + localStorage.getItem('xiaohongshu');
+                    console.log('小红书路径:', xiaohongshuPath);
+                });
+
+                kuaishouPathInput?.addEventListener('input', () => {
+                    kuaishouPath = clipPathPrefix + kuaishouPathInput.value + '/' + localStorage.getItem('kuaishou');
+                    console.log('快手路径:', kuaishouPath);
+                });
+                outputPathInput?.addEventListener('input', () => {
+                    outputPath = './output/' + outputPathInput.value + '/';
+                    if (!outputPath.endsWith('/')) {
+                        outputPath += '/';
+                    }
+                    console.log('输出路径:', outputPath);
+                });
+
+            });
+
+        </script>
 </body>
 
 </html>

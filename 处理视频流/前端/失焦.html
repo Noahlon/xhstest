@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>点击输入框 → 粘贴剪切板并失焦</title>
+<style>
+  body { font-family: Arial, "Microsoft YaHei"; margin: 40px; }
+  input { padding: 6px; font-size: 16px; }
+</style>
+</head>
+<body>
+
+<input id="myInput" placeholder="点我，自动粘贴剪切板内容..." />
+
+<script>
+const input = document.getElementById('myInput');
+
+input.addEventListener('focus', async () => {
+  try {
+    // 只有在 focus 事件里（属于用户手势）才能安全 readText
+    const text = await navigator.clipboard.readText();
+    input.value = text;   // 写入剪切板内容
+  } catch (err) {
+    // 权限被拒 或 剪切板为空/不可读 等静默处理即可
+    console.log('剪切板读取失败：', err.message);
+  }
+  // 填完立刻失焦，避免重复触发
+  input.blur();
+});
+</script>
+
+</body>
+</html>

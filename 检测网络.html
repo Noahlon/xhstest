@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>网络状态检测（每5秒）</title>
+<style>
+  body {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    background: #f0f2f5;
+  }
+  .card {
+    padding: 40px 60px;
+    border-radius: 20px;
+    text-align: center;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    min-width: 280px;
+  }
+  .score {
+    font-size: 48px;
+    font-weight: bold;
+    margin: 10px 0;
+    color: white;
+  }
+  .label {
+    font-size: 18px;
+    color: rgba(255,255,255,0.9);
+    margin-bottom: 6px;
+  }
+  .ping {
+    font-size: 14px;
+    color: rgba(255,255,255,0.7);
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="card" id="card">
+  <div class="label">网络评分</div>
+  <div class="score" id="score">--</div>
+  <div class="ping" id="ping">检测中...</div>
+</div>
+
+<script>
+const card = document.getElementById('card');
+const scoreEl = document.getElementById('score');
+const pingEl = document.getElementById('ping');
+
+// 使用百度的小图标（轻量、国内稳定）
+const TEST_URL = 'https://www.baidu.com/favicon.ico';
+
+function testLatency(callback) {
+  const start = performance.now();
+  const img = new Image();
+  img.src = TEST_URL + '?t=' + Date.now(); // 防缓存
+
+  const timeout = setTimeout(() => {
+    callback(9999); // 超时
+  }, 4000); // 最多等4秒
+
+  img.onload = () => {
+    clearTimeout(timeout);
+    const latency = performance.now() - start;
+    callback(Math.round(latency));
+  };
+
+  img.onerror = () => {
+    clearTimeout(timeout);
+    callback(9999);
+  };
+}
+
+function computeScore(latency) {
+  if (latency >= 9999) return { score: 0, desc: "无网络", latency };
+
+  // 延迟 → 分数 映射（越低越好）
+  let score;
+  if (latency <= 50) {
+    score = 100;
+  } else if (latency <= 150) {
+    score = 100 - (latency - 50) * 0.2; // 50→100, 150→80
+  } else if (latency <= 400) {
+    score = 80 - (latency - 150) * (40 / 250); // 150→80, 400→40
+  } else if (latency <= 800) {
+    score = 40 - (latency - 400) * (30 / 400); // 400→40, 800→10
+  } else {
+    score = Math.max(0, 10 - (latency - 800) * 0.025);
+  }
+
+  let desc;
+  if (score >= 80) desc = "优秀";
+  else if (score >= 50) desc = "一般";
+  else if (score >= 20) desc = "较差";
+  else desc = "极差";
+
+  return { score: Math.max(0, Math.round(score)), desc, latency };
+}
+
+function updateUI(result) {
+  const { score, desc, latency } = result;
+
+  let color;
+  if (score >= 80) color = "#2ecc71";      // 绿
+  else if (score >= 50) color = "#f1c40f"; // 黄
+  else if (score >= 20) color = "#e67e22"; // 橙
+  else color = "#e74c3c";                   // 红
+
+  card.style.background = color;
+  scoreEl.textContent = score;
+  pingEl.textContent = `${desc} · ${latency} ms`;
+}
+
+function runTest() {
+  testLatency(latency => {
+    const result = computeScore(latency);
+    updateUI(result);
+  });
+}
+
+// ✅ 每 5 秒执行一次
+runTest();
+setInterval(runTest, 5000);
+</script>
+
+</body>
+</html>
