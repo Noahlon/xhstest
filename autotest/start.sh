@@ -9,10 +9,10 @@ pkill -f weditor
 # 参数为 2           => 启动 appium
 
 if [ "$1" = "2" ]; then
-    appium & >> appium.log
+    appium & >> ./log/appium.log
     echo "Appium started."
 else
     # 默认或 1 都启动 weditor
-    weditor & >> weditor.log
+    weditor & >> ./log/weditor.log
     echo "WEditor started."
 fi

@@ -100,6 +100,8 @@ def log(message: str, device_id: str = "", app_name: str = ""):
     _global_logger.log(message, device_id, app_name)
 
 
+# 保存日志
+
 # ============== 使用示例 ==============
 if __name__ == "__main__":
     # 测试示例

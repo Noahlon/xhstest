@@ -29,3 +29,4 @@ if __name__ == "__main__":
     start_recording(d)
     time.sleep(10)  # 录制 10 秒
     stop_recording(d) 
+
