@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <div id="chat-history" class="chat-history">
+      <div class="message system">欢迎使用 AI 助手。请先在设置中配置 Key，然后开始对话。</div>
+    </div>
+    
+    <div class="controls">
+      <button id="read-page-btn" class="secondary-btn">📄 读取当前网页内容</button>
+    </div>
+
+    <div class="input-area">
+      <textarea id="user-input" placeholder="输入您的问题..."></textarea>
+      <button id="send-btn">发送</button>
+    </div>
+  </div>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

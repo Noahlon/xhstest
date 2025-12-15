@@ -2,8 +2,10 @@ import time
 import threading
 import uiautomator2 as u2
 import 屏幕录制 as sr
+import 屏幕录制adb as sradb
 import id与手机的关系 as idphone
-
+import logger 
+from logger import  RecordingLogger
 
 time_sleep = 5      # 等待时间
 watch_time = 10     # 观看视频时间
@@ -13,8 +15,86 @@ wait_time_pic = 20  # 上传图片等待时间
 wait_time_video = 60 # 上传视频等待时间
 # 搜索列表
 search_list = ["日本", "上海"]
+# 录制时间
+recording_duration = 60 * 7  # 录制时长，单位秒
+# 当前场景变量
+current_scene = "上海测试"
 
-def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: threading.Barrier):
+# 剪辑的数据
+clip_data = []
+
+class RecordingLogger:
+    """
+    录制日志类
+    时间格式: MM:SS:FF (分:秒:帧)
+    帧率: 30fps，帧范围 00-29
+    示例: 03:02:22 表示 3分2秒22帧
+    """
+    
+    def __init__(self, fps: int = 30):
+        """
+        初始化日志器
+        :param fps: 帧率，默认30
+        """
+        self.fps = fps
+        self._start_time = None
+        self._lock = threading.Lock()
+    
+    def start(self):
+        """开始计时"""
+        with self._lock:
+            self._start_time = time.time()
+    
+    def stop(self):
+        """停止计时"""
+        with self._lock:
+            self._start_time = None
+    
+    def reset(self):
+        """重置计时器"""
+        self.stop()
+    
+    def get_time(self) -> str:
+        """
+        获取当前录制时间
+        :return: 格式 MM:SS:FF
+        """
+        if self._start_time is None:
+            return "00:00:00"
+        
+        elapsed = time.time() - self._start_time
+        
+        minutes = int(elapsed // 60)
+        seconds = int(elapsed % 60)
+        frames = int((elapsed - int(elapsed)) * self.fps)
+        frames = min(frames, self.fps - 1)  # 确保不超过最大帧
+        
+        return f"{minutes:02d}:{seconds:02d}:{frames:02d}"
+    
+    def get_elapsed_seconds(self) -> float:
+        """获取经过的秒数"""
+        if self._start_time is None:
+            return 0.0
+        return time.time() - self._start_time
+    
+    def log(self, message: str, device_id: str = "", app_name: str = ""):
+        """
+        打印日志
+        :param message: 日志消息
+        :param device_id: 设备ID（可选）
+        :param app_name: 应用名称（可选）
+        """
+        with self._lock:
+            time_str = self.get_time()
+            
+            if device_id and app_name:
+                print(f"[{time_str}] [{device_id} {app_name}] {message}")
+            elif device_id:
+                print(f"[{time_str}] [{device_id}] {message}")
+            else:
+                print(f"[{time_str}] {message}")
+
+def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: threading.Barrier, logger: RecordingLogger):
     """
     在单台设备上执行完整测试流程的函数（给线程调用）
     :param device_id: adb 设备 id，比如 "10.23.170.154:43651" 或 "emulator-5554"
@@ -26,12 +106,13 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
     d = u2.connect(device_id)
 
     # 停止所有应用
-    def stop_all_apps():
+    def init():
+        logger.log(f"[{device_id} {app_name}] 初始化测试环境")
         time.sleep(2)
         d.app_stop_all()
         time.sleep(5)
     # 下面是原脚本中的函数，改成内部函数以使用 d 和 test_app
-    def first_swipe():
+    def first_start():
         d.app_start(test_app)
         time.sleep(time_sleep)
 
@@ -226,10 +307,10 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
         upload_video()
     """
     def start_test():
+        
         # 运行case列表
         cases= [
-            stop_all_apps,
-            first_swipe,
+            first_start,
             cold_start,
             click_home,
             swipe_down,
@@ -240,14 +321,25 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
             upload_pic,
             upload_video,
         ]
+        init()
+        time.sleep(3)
+        sr.start_recording(d)
+        # sradb.start_record(device_id, f"{app_name}.mp4", 300)
+        logger.start()
+        
+        time.sleep(3)  # 录制 10 秒
         for case in cases:
-            print(f"[{device_id} {app_name}] 准备运行 {case.__name__}")
+            logger.log(f"[{device_id} {app_name}] 准备运行 {case.__name__}")
             barrier.wait()  # 等待其他线程到达此点
+            logger.log(f"[{device_id} {app_name}] 运行 {case.__name__} 开始")
             case()
             time.sleep(2)
+            logger.log(f"[{device_id} {app_name}] 运行 {case.__name__} 完成")
 
     def end_test():
+        logger.stop()
         sr.stop_recording(d)
+        # sradb.copy_record(device_id, f"{app_name}.mp4", local_dir=f"./records/{current_scene}")
         d.app_stop(test_app)
         print(f"[{device_id}] 测试结束，关闭应用")
 
@@ -265,6 +357,11 @@ def main():
    # 获取设备与 app 信息
     device_info = idphone.detect_short_video_apps()
     print("检测到的设备和应用信息：", device_info)
+    # 测试的设备的数量
+    print(f"测试的设备数量：{len(device_info)}，分别是：{list(device_info.keys())}")
+
+    # 初始化日志记录器
+    logger = RecordingLogger(fps=30)
 
     tasks = []
     threads = []
@@ -285,7 +382,7 @@ def main():
     for device_id, app_path, app_name in tasks:
         t = threading.Thread(
             target=run_test_on_device,
-            args=(device_id, app_path, app_name, barrier),  # 传 barrier 进去
+            args=(device_id, app_path, app_name, barrier, logger),  # 传 barrier 和 logger 进去
             name=f"{app_path}-{device_id}",
             daemon=False
         )

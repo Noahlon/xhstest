@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "AI 网页助手",
+  "version": "1.0",
+  "description": "在侧边栏与大模型对话，并支持读取当前网页内容。",
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "activeTab",  
+    "scripting"
+  ],
+  "options_page": "options.html",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_title": "打开 AI 助手"
+  },
+  "icons": {
+    // "16": "images/icon16.png",
+    // "48": "images/icon48.png",
+    // "128": "images/icon128.png"
+  }
+}
