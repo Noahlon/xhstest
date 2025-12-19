@@ -4,7 +4,8 @@ import threading
 import uiautomator2 as u2
 import screen_recording as sr
 import id_phone_relation as idphone
-from logger import  RecordingLogger
+from logger import RecordingLogger
+from config import client, KIMI_MODEL
 
 time_sleep = 5      # 等待时间
 watch_time = 10     # 观看视频时间
@@ -12,8 +13,11 @@ watch_time = 10     # 观看视频时间
 case_interval = 5
 wait_time_pic = 20  # 上传图片等待时间
 wait_time_video = 60 # 上传视频等待时间
-# 搜索列表
+
+# 搜索列表（默认值，运行时会尝试用大模型生成）
 search_list = ["日本", "上海"]
+# 搜索列表使用大模型生成
+
 # 录制时间
 recording_duration = 60 * 7  # 录制时长，单位秒
 # 当前场景变量
@@ -21,6 +25,35 @@ current_scene = "上海测试"
 
 
 datas = []
+
+
+def generate_search_terms(count: int = 2) -> list[str]:
+    """
+    调用大模型生成搜索关键词列表。
+    """
+    prompt = f"""请生成 {count} 个适合短视频平台的中文搜索关键词，主题可以是热门城市、美食、旅行或当下热点。
+仅返回 JSON 数组，不要额外文字。例如：
+["东京美食", "夏日旅行"]"""
+
+    try:
+        resp = client.chat.completions.create(
+            model= KIMI_MODEL,
+            messages=[
+                {"role": "system", "content": "你是一个随机生成热门中文搜索词的助手，只输出 JSON 数组。"},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.7,
+            max_tokens=200,
+        )
+        content = resp.choices[0].message.content.strip()
+        terms = json.loads(content)
+        # 保证是字符串列表
+        terms = [str(t).strip() for t in terms if str(t).strip()]
+        # 只取前 count 个
+        return terms[:count] if terms else []
+    except Exception as e:
+        print(f"生成搜索词失败，使用默认列表。错误: {e}")
+        return []
 
 
 class RecordingLogger:
@@ -114,12 +147,11 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
     # 停止所有应用
     def init():
         logger.log(f"[{device_id} {app_name}] 初始化测试环境")
-        time.sleep(2)
         d.app_stop_all()
-        time.sleep(5)
+        time.sleep(3)
     # 下面是原脚本中的函数，改成内部函数以使用 d 和 test_app
     def first_start():
-        d.app_start(test_app)
+        d(text=app_name).click()
         time.sleep(time_sleep)
     def play_current_video_or_note(test_app):
         clicked = False
@@ -178,7 +210,9 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
         time.sleep(1)
 
     def swipe_up():
-        d.swipe(0.5, 0.8, 0.2, 0.3, 0.1)
+        for i in range(4):
+            d.swipe(0.5, 0.8, 0.2, 0.3, 0.05)
+        
         time.sleep(time_sleep)
         d.click(0.658, 0.309)
         time.sleep(watch_time)
@@ -212,7 +246,7 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
         time.sleep(time_sleep)
         # 如果是快手，需要多点一次视频
         if test_app == "com.smile.gifmaker":
-            # d(text="视频").click()
+            d(text="视频").click()
             d.click(0.265, 0.121)
             time.sleep(3)
         d.click(0.658, 0.309)
@@ -228,7 +262,8 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
         # 如果是快手，需要多点一次视频
         if test_app == "com.smile.gifmaker":
             # d(text="视频").click()
-            d.click(0.39, 0.122)    
+            d.click(0.419, 0.131)
+            # d.click(0.39, 0.122)    
             time.sleep(3)
 
         d.click(0.658, 0.309)
@@ -366,33 +401,32 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
             # cold_start,
             # cold_start,
             # cold_start,
-            # click_home,
+            click_home,
             # swipe_down,
             # swipe_down,
             # swipe_down,
             # swipe_up,
             # swipe_up,
             # swipe_up,
+
             # watch_video,
-            # watch_video,
-            # watch_video,
-            # search,
+            search,
             # personal_page,
             # upload_pic,
-            upload_video,
+            # upload_video,
         ]
         init()
         time.sleep(3)
         barrier.wait()  # 等待其他线程准备好
-        sr.start_recording(d)
-        # sradb.start_record(device_id, f"{app_name}.mp4", 300)
+        # sr.start_recording(d)
+
         logger.start()
         
         time.sleep(3)  # 录制 10 秒
-        for case in cases:
-            logger.log(f"[{device_id} {app_name}] 准备运行 {case.__name__}")
+        total = len(cases)
+        for idx, case in enumerate(cases, 1):
             barrier.wait()  # 等待其他线程到达此点
-            logger.log(f"[{device_id} {app_name}] 运行 {case.__name__} 开始")
+            logger.log(f"[{device_id} {app_name}] 运行 {case.__name__} 开始 ({idx}/{total})")
             datas.append({
                 "time": logger.get_time(),
                 "case_name": case.__name__,
@@ -410,7 +444,7 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
                 "type": "end"
             })
             time.sleep(2)
-            logger.log(f"[{device_id} {app_name}] 运行 {case.__name__} 完成")
+            logger.log(f"[{device_id} {app_name}] 运行 {case.__name__} 完成 ({idx}/{total})")
 
     def end_test():
         logger.stop()
@@ -432,6 +466,15 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
 def main():
    # 获取设备与 app 信息
     device_info = idphone.detect_short_video_apps()
+
+    # 调用大模型生成搜索列表（失败则保留默认）
+    global search_list
+    ai_terms = generate_search_terms(count=2)
+    if ai_terms:
+        search_list = ai_terms
+        print(f"使用大模型生成的搜索词: {search_list}")
+    else:
+        print(f"使用默认搜索词: {search_list}")
     count = 0
     for device in device_info:
         if device_info[device]["id"] and device_info[device]["path"]:
