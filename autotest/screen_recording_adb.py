@@ -64,7 +64,7 @@ def copy_record(device_id: str, filename: str, local_dir: str = "./records", del
 
 
 if __name__ == "__main__":
-    import id与手机的关系 as idphone   # 你的模块名就这样的话可以保留
+    import autotest.id_phone_relation as idphone   # 你的模块名就这样的话可以保留
 
     detected_devices = idphone.detect_short_video_apps()
     print("检测到的设备和应用信息：", detected_devices)

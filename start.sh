@@ -35,9 +35,10 @@ if [ -n "$PID" ]; then
 else
     echo "端口 $PORT 未被占用"
 fi
-
+# 打印当前ip地址
+IP_ADDRESS=$(ipconfig getifaddr en0)
 echo -e "\n=== 启动 Python CGI HTTP 服务器 ==="
-echo "服务器将在 http://localhost:$PORT 启动"
+echo "服务器将在 http://$IP_ADDRESS:$PORT 启动"
 echo "按 Ctrl+C 停止服务器"
 
 # 启动 Python 服务器

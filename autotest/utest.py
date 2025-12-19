@@ -1,10 +1,8 @@
 import time
 import threading
 import uiautomator2 as u2
-import 屏幕录制 as sr
-import 屏幕录制adb as sradb
-import id与手机的关系 as idphone
-import logger 
+import screen_recording as sr
+import id_phone_relation as idphone
 from logger import  RecordingLogger
 
 time_sleep = 5      # 等待时间
@@ -20,8 +18,9 @@ recording_duration = 60 * 7  # 录制时长，单位秒
 # 当前场景变量
 current_scene = "上海测试"
 
-# 剪辑的数据
-clip_data = []
+
+datas = []
+
 
 class RecordingLogger:
     """
@@ -93,6 +92,12 @@ class RecordingLogger:
                 print(f"[{time_str}] [{device_id}] {message}")
             else:
                 print(f"[{time_str}] {message}")
+        datas.append({
+            "time": time_str,
+            "device_id": device_id,
+            "app_name": app_name,
+            "message": message,
+        })
 
 def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: threading.Barrier, logger: RecordingLogger):
     """
@@ -115,19 +120,50 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
     def first_start():
         d.app_start(test_app)
         time.sleep(time_sleep)
+    def play_current_video_or_note(test_app):
+        clicked = False
+
+        if test_app == "com.ss.android.ugc.aweme":  # 抖音
+            element = d(resourceId="com.ss.android.ugc.aweme:id/c65")
+            if element.exists:
+                element[0].click()
+                clicked = True
+
+        elif test_app == "com.xingin.xhs":  # 小红书
+            video_elements = d(descriptionStartsWith="视频")
+            for item in video_elements:
+                desc = item.info.get('contentDescription', '')
+                if desc and desc != "视频" and len(desc) >= 4:
+                    item.click()
+                    clicked = True
+                    break
+
+        else:  # 其他 App，尝试点击固定坐标（可能是笔记封面）
+            d.click(0.658, 0.309)
+            clicked = True  # 假设这个点击总是有效
+
+        if clicked:
+            time.sleep(watch_time)
+            return True
+        else:
+            return False
 
     
-    def cold_start():
-        for i in range(3):
-            if test_app == "com.xingin.xhs":
-                d.swipe(0.5, 0.8, 0.5, 0.3, 0.1)
-                d.swipe(0.5, 0.8, 0.5, 0.3, 0.1)
+    def cold_start():  
+        if test_app == "com.xingin.xhs":
+            d.swipe(0.5, 0.8, 0.5, 0.3, 0.1)
+            d.swipe(0.5, 0.8, 0.5, 0.3, 0.1)
 
-            d.swipe(0.5, 0.8, 0.5, 0.3, 0.2)
-            print(f"[{device_id}] 冷启下拉刷新第{i+1}次")
-            time.sleep(time_sleep)
+        d.swipe(0.5, 0.8, 0.5, 0.3, 0.2)
+        time.sleep(time_sleep)
 
     def click_home():
+        # 如果是抖音，只点击一次
+        if test_app == "com.ss.android.ugc.aweme":
+            d.click(0.117, 0.955)
+            time.sleep(time_sleep)
+            return
+        # 快手和小红书点击两次 
         d.click(0.117, 0.955)
         d.click(0.117, 0.955)
         time.sleep(time_sleep)
@@ -154,16 +190,16 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
             print(f"[{device_id}] 首页下滑刷新第{i+1}次")
     # 视频内流
     def watch_video():
-        print("视频内流1"+ test_app)
-        d.click(0.658, 0.309)
+       
+        # 抖音
+        play_current_video_or_note(test_app)
+        
+        d.swipe(0.5, 0.8, 0.5, 0.3, 0.05)
         time.sleep(watch_time)
-        print("视频内流2"+ test_app)
-        d.swipe(0.5, 0.8, 0.5, 0.3, 0.2)
+        d.swipe(0.5, 0.8, 0.5, 0.3, 0.05)
         time.sleep(watch_time)
-        print("视频内流3"+ test_app)
-        d.swipe(0.5, 0.8, 0.5, 0.3, 0.2)
-        time.sleep(watch_time)
-        d.swipe(0.02, 0.5, 0.98, 0.5, 0.2)
+        # 返回
+        d.press("back")
         time.sleep(1)
 
 
@@ -216,6 +252,24 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
         print("个人主页")
         d(text="我").click()
         time.sleep(time_sleep)
+    # 判断图片或视频是否上传成功
+    def wait_for_publish_success(timeout=30, interval=0.1) -> bool:
+        # 抖音
+        text = "发布成功"
+        if test_app == "com.ss.android.ugc.aweme":
+            text = "发布成功"
+        elif test_app == "com.xingin.xhs": # 小红书
+            text = "发布成功！.."
+        elif test_app == "com.smile.gifmaker": # 快手
+            text = "作品发布成功，分享至"
+        start = time.time()
+        while time.time() - start < timeout:
+            if d(text=text).exists(timeout=0):   # 立即判断
+                print("✅ 发布成功")
+                return True
+            time.sleep(interval)
+        print("❌ 发布失败（等待超时）")
+        return False
     # 上传图片
     def upload_pic():
         print("上传图片")
@@ -251,7 +305,9 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
             d(text="发布").click()
         elif test_app == "com.xingin.xhs":
             d(text="发布笔记").click()
-        time.sleep(wait_time_pic)
+        # 等待发布成功
+        wait_for_publish_success(wait_time_pic)
+        
         d.press("back")
         time.sleep(2)
     # 上传视频
@@ -287,7 +343,8 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
             d(text="发布").click()
         elif test_app == "com.xingin.xhs":
             d(text="发布笔记").click()
-        time.sleep(wait_time_video)
+        # 等待发布成功
+        wait_for_publish_success(wait_time_video)
         d.press("back")
         time.sleep(2)
     """
@@ -311,18 +368,21 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
         # 运行case列表
         cases= [
             first_start,
-            cold_start,
+            # cold_start,
+            # cold_start,
+            # cold_start,
             click_home,
-            swipe_down,
-            swipe_up,
-            watch_video,
-            search,
-            personal_page,
+            # swipe_down,
+            # swipe_up,
+            # watch_video,
+            # search,
+            # personal_page,
             upload_pic,
             upload_video,
         ]
         init()
         time.sleep(3)
+        barrier.wait()  # 等待其他线程准备好
         sr.start_recording(d)
         # sradb.start_record(device_id, f"{app_name}.mp4", 300)
         logger.start()
@@ -332,7 +392,22 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
             logger.log(f"[{device_id} {app_name}] 准备运行 {case.__name__}")
             barrier.wait()  # 等待其他线程到达此点
             logger.log(f"[{device_id} {app_name}] 运行 {case.__name__} 开始")
-            case()
+            datas.append({
+                "time": logger.get_time(),
+                "case_name": case.__name__,
+                "app_name": app_name,
+                "type": "start"
+            })
+            try:
+                case()
+            except Exception as e:
+                logger.log(f"[{device_id} {app_name}] 运行 {case.__name__} 出错: {e}")
+            datas.append({
+                "time": logger.get_time(),
+                "case_name": case.__name__,
+                "app_name": app_name,
+                "type": "end"
+            })
             time.sleep(2)
             logger.log(f"[{device_id} {app_name}] 运行 {case.__name__} 完成")
 
@@ -356,9 +431,13 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
 def main():
    # 获取设备与 app 信息
     device_info = idphone.detect_short_video_apps()
-    print("检测到的设备和应用信息：", device_info)
+    count = 0
+    for device in device_info:
+        if device_info[device]["id"] and device_info[device]["path"]:
+            print(f"设备: {device}, ID: {device_info[device]['id']}, 应用: {device_info[device]['appName']}, 包名: {device_info[device]['path']}")
+            count += 1
     # 测试的设备的数量
-    print(f"测试的设备数量：{len(device_info)}，分别是：{list(device_info.keys())}")
+    print(f"测试的设备数量：{count} 个")
 
     # 初始化日志记录器
     logger = RecordingLogger(fps=30)
@@ -394,6 +473,9 @@ def main():
     # 等待所有线程结束
     for t in threads:
         t.join()
+    
+    # 打印所有测试数据
+    print(datas)
 
     print("所有设备测试完成。")
 
