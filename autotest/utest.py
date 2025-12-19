@@ -1,3 +1,4 @@
+import json
 import time
 import threading
 import uiautomator2 as u2
@@ -169,28 +170,22 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
         time.sleep(time_sleep)
 
     def swipe_down():
-        for i in range(3):
-            d.swipe(0.5, 0.3, 0.5, 0.8, 0.2)
-            print(f"[{device_id}] 首页上拉刷新第{i+1}次")
-            time.sleep(time_sleep)
-            d.click(0.658, 0.309)
-            time.sleep(watch_time)
-            d.swipe(0.02, 0.5, 0.98, 0.5, 0.2)
-            time.sleep(1)
+        d.swipe(0.5, 0.3, 0.5, 0.8, 0.2)
+        time.sleep(time_sleep)
+        d.click(0.658, 0.309)
+        time.sleep(watch_time)
+        d.swipe(0.02, 0.5, 0.98, 0.5, 0.2)
+        time.sleep(1)
 
     def swipe_up():
-        for i in range(3):
-            d.swipe(0.5, 0.8, 0.2, 0.3, 0.1)
-            d.swipe(0.5, 0.8, 0.2, 0.3, 0.1)
-            time.sleep(time_sleep)
-            d.click(0.658, 0.309)
-            time.sleep(watch_time)
-            d.swipe(0.02, 0.5, 0.98, 0.5, 0.2)
-            time.sleep(1)
-            print(f"[{device_id}] 首页下滑刷新第{i+1}次")
+        d.swipe(0.5, 0.8, 0.2, 0.3, 0.1)
+        time.sleep(time_sleep)
+        d.click(0.658, 0.309)
+        time.sleep(watch_time)
+        d.swipe(0.02, 0.5, 0.98, 0.5, 0.2)
+        time.sleep(1)
     # 视频内流
     def watch_video():
-       
         # 抖音
         play_current_video_or_note(test_app)
         
@@ -371,13 +366,19 @@ def run_test_on_device(device_id: str, test_app: str ,app_name: str, barrier: th
             # cold_start,
             # cold_start,
             # cold_start,
-            click_home,
+            # click_home,
+            # swipe_down,
+            # swipe_down,
             # swipe_down,
             # swipe_up,
+            # swipe_up,
+            # swipe_up,
+            # watch_video,
+            # watch_video,
             # watch_video,
             # search,
             # personal_page,
-            upload_pic,
+            # upload_pic,
             upload_video,
         ]
         init()
@@ -474,8 +475,8 @@ def main():
     for t in threads:
         t.join()
     
-    # 打印所有测试数据
-    print(datas)
+    # 打印JSON
+    print(json.dumps(datas, indent=4, ensure_ascii=False))
 
     print("所有设备测试完成。")
 
