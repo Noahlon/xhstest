@@ -1,2 +1,3 @@
 WiFi 环境下配置WiFi调试固定端口
-¡
+
+qwen3-reranker-8b,qwen3-embedding-8b,deepseek-v3.2,deepseek-ocr,kimi-k2-instruct,deepseek-v3.2-exp,qwen3-vl-8b-instruct,qwen3-vl-32b-instruct,qwen3-vl-30b-a3b-instruct,qwen3-vl-235b-a22b-instruct,deepseek-v3.1-terminus,qwen3-next-80b-a3b-thinking,gpt-oss-20b,dots.llm2.inst-preview,dots.ocr,qwen3-reranker-0.6b,qwen3-1.7b,qwen3-30b-a3b,gpt-oss-120b,xdg-vl-72b,qwen3-14b,dots.vlm1.inst,qwen3-coder-480b-a35b-instruct,qwen3-32b,qwen3-4b,qwen3-8b,qwen2.5-7b-instruct,qwen3-235b-a22b,qwen3-0.6b,qwen2.5-14b-instruct,qwen2.5-72b-instruct,qwen2.5-vl-72b-instruct,qwen2.5-vl-32b-instruct,deepseek-r1,deepseek-v3,kimi-k2-thinking,glm-4.6,qwq-32b,dots.llm1.inst,qwen3-235b-a22b-instruct-2507,llama-3.3-70b-instruct,qwen3-embedding-0.6b,qwen2.5-vl-7b-instruct,qwen3-next-80b-a3b-instruct,qwen2.5-32b-instruct,deepseek-r1-distill-qwen-32b,qwen3-vl-235b-a22b-thinking,qwen2.5-coder-32b-instruct
