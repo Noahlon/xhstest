@@ -7,3 +7,7 @@
 *.log
 *.sqlite3
 .DS_Store
+*.xlsx
+.vscode/
+.env
+.cache/
